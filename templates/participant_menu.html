@@ -14,7 +14,10 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:
 .header p{font-size:13px;opacity:.75}
 .header .logo-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
 .header .logo-row img{width:40px;height:40px;border-radius:8px;object-fit:contain;background:white;padding:4px}
-.net-badge{position:absolute;top:16px;right:16px;display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600}
+.header-actions{position:absolute;top:16px;right:16px;display:flex;gap:8px;align-items:center}
+.home-btn{background:rgba(255,255,255,.15);color:#A7F3D0;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.home-btn:hover{background:rgba(255,255,255,.25)}
+.net-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600}
 .net-badge.on{background:rgba(5,150,105,.25);color:#A7F3D0}
 .menu-item{background:white;border:2px solid #F3F4F6;border-radius:12px;padding:20px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:16px;transition:.15s;text-decoration:none;color:inherit}
 .menu-item:hover{border-color:#E5E7EB;background:#F9FAFB}
@@ -39,7 +42,10 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:
   </div>
  </div>
  <p>{{ assessment.dates_label }} &middot; CHAI Uganda</p>
- <div class="net-badge on"><span>&#9679;</span> <span>Online</span></div>
+ <div class="header-actions">
+  <a href="{{ url_for('index') }}" class="home-btn">&#8592; Home</a>
+  <div class="net-badge on"><span>&#9679;</span> <span>Online</span></div>
+ </div>
 </div>
 
 <a href="{{ url_for('registration_form', assessment_id=assessment.id) }}" class="menu-item">

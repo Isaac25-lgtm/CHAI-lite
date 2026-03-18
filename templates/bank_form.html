@@ -16,7 +16,10 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:
 .header p{font-size:13px;opacity:.75}
 .header .logo-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
 .header .logo-row img{width:40px;height:40px;border-radius:8px;object-fit:contain;background:white;padding:4px}
-.net-badge{position:absolute;top:16px;right:16px;display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600}
+.header-actions{position:absolute;top:16px;right:16px;display:flex;gap:8px;align-items:center}
+.home-btn{background:rgba(255,255,255,.15);color:#FDE68A;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.home-btn:hover{background:rgba(255,255,255,.25)}
+.net-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600}
 .net-badge.on{background:rgba(5,150,105,.25);color:#A7F3D0}.net-badge.off{background:rgba(220,38,38,.25);color:#FCA5A5}
 .alert{padding:14px 18px;border-radius:8px;margin-bottom:16px;animation:slideIn .3s ease;font-size:14px;display:none}
 .alert-success{background:#D1FAE5;border:1px solid #A7F3D0;color:#065F46}
@@ -65,7 +68,10 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#FEF3C7}
   </div>
  </div>
  <p>{{ assessment.name }} &middot; Bank account details for per diem payment</p>
- <div class="net-badge on" id="netBadge"><span>&#9679;</span> <span>Online</span></div>
+ <div class="header-actions">
+  <a href="{{ url_for('index') }}" class="home-btn">&#8592; Home</a>
+  <div class="net-badge on" id="netBadge"><span>&#9679;</span> <span>Online</span></div>
+ </div>
 </div>
 
 <div id="aAlert" class="alert"></div>
