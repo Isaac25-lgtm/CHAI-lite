@@ -20,7 +20,13 @@ if DATABASE_URL.startswith('postgres://'):
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True, 'pool_recycle': 300}
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+    'pool_size': 5,
+    'max_overflow': 10,
+    'connect_args': {'connect_timeout': 5}
+}
 
 db = SQLAlchemy(app)
 
@@ -558,10 +564,10 @@ def create_assessment():
 
     try:
         campaign_days_int = int(campaign_days)
-        if campaign_days_int < 1 or campaign_days_int > 5:
+        if campaign_days_int < 1 or campaign_days_int > 30:
             raise ValueError
     except ValueError:
-        flash('Campaign days must be between 1 and 5.', 'error')
+        flash('Campaign days must be between 1 and 30.', 'error')
         return redirect(url_for('admin_assessments'))
 
     if not pin or len(pin) < 3:
@@ -716,7 +722,7 @@ def admin_settings(assessment_id):
 
         try:
             cd = int(campaign_days)
-            if 1 <= cd <= 5:
+            if 1 <= cd <= 30:
                 assessment.campaign_days = cd
         except ValueError:
             pass

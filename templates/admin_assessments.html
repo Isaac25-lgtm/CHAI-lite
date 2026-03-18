@@ -89,13 +89,8 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:
    <div class="row2">
     <div class="fg">
      <label>Campaign Days <span class="req">*</span></label>
-     <select name="campaign_days">
-      <option value="1">1 day</option>
-      <option value="2">2 days</option>
-      <option value="3" selected>3 days</option>
-      <option value="4">4 days</option>
-      <option value="5">5 days</option>
-     </select>
+     <input type="number" name="campaign_days" value="3" min="1" max="30" required>
+     <div class="hint">Number of attendance tracking days (1–30)</div>
     </div>
    </div>
    <div class="fg">
