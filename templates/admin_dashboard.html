@@ -99,43 +99,6 @@ tbody tr:hover{background:#E8F4F4}
   <div class="stat-card"><div class="num">{{ filtered_count }}</div><div class="label">Filtered Results</div></div>
  </div>
 
- <!-- Analytics Charts -->
- {% if total_count > 0 %}
- <div class="chart-grid">
-
-  <!-- Enrollment Trend Line -->
-  <div class="chart-card chart-full">
-   <h3>Enrollment Trend</h3>
-   <canvas id="trendChart" height="80"></canvas>
-  </div>
-
-  <!-- District Distribution (Doughnut) -->
-  <div class="chart-card">
-   <h3>Participants by District</h3>
-   <canvas id="districtChart"></canvas>
-  </div>
-
-  <!-- Facility Distribution (Horizontal Bar) -->
-  <div class="chart-card">
-   <h3>Participants by Facility</h3>
-   <canvas id="facilityChart"></canvas>
-  </div>
-
-  <!-- Cadre Breakdown (Pie) -->
-  <div class="chart-card">
-   <h3>Cadre Breakdown</h3>
-   <canvas id="cadreChart"></canvas>
-  </div>
-
-  <!-- Day Attendance (Bar) -->
-  <div class="chart-card">
-   <h3>Attendance per Campaign Day</h3>
-   <canvas id="dayChart"></canvas>
-  </div>
-
- </div>
- {% endif %}
-
  <!-- Filters -->
  <div class="card">
   <h2>Filters</h2>
@@ -211,6 +174,33 @@ tbody tr:hover{background:#E8F4F4}
   <div class="empty">No registrations found</div>
   {% endif %}
  </div>
+
+ <!-- Analytics Charts -->
+ {% if total_count > 0 %}
+ <div class="chart-grid">
+  <div class="chart-card chart-full">
+   <h3>Enrollment Trend</h3>
+   <canvas id="trendChart" height="80"></canvas>
+  </div>
+  <div class="chart-card">
+   <h3>Participants by District</h3>
+   <canvas id="districtChart"></canvas>
+  </div>
+  <div class="chart-card">
+   <h3>Participants by Facility</h3>
+   <canvas id="facilityChart"></canvas>
+  </div>
+  <div class="chart-card">
+   <h3>Cadre Breakdown</h3>
+   <canvas id="cadreChart"></canvas>
+  </div>
+  <div class="chart-card">
+   <h3>Attendance per Campaign Day</h3>
+   <canvas id="dayChart"></canvas>
+  </div>
+ </div>
+ {% endif %}
+
 </div>
 
 {% if total_count > 0 %}
