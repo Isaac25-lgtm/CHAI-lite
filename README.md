@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="static/chai-logo.jpg" alt="CHAI Logo" width="120">
+</p>
+
 # CHAI Uganda -- Field Operations Tool
 
 > A multi-assessment field operations platform built for **CHAI (Clinton Health Access Initiative) Uganda**. Manages participant registration, attendance tracking, and assessment team bank detail collection for field activities across Uganda's 135 districts.
