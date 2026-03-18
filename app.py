@@ -194,6 +194,17 @@ def login_required(f):
     return decorated_function
 
 
+# ── Chart helpers ──────────────────────────────────────────────────
+
+def bucket_stats(stats, top_n=10):
+    """Take a list of (label, count) tuples and bucket beyond top_n into 'Others'."""
+    if len(stats) <= top_n:
+        return stats
+    top = stats[:top_n]
+    others_count = sum(s[1] for s in stats[top_n:])
+    return list(top) + [('Others', others_count)]
+
+
 # ── Excel builder ───────────────────────────────────────────────────
 
 def build_excel(registrations, campaign_days, sheet_title="Registration & Attendance"):
@@ -753,9 +764,9 @@ def admin_dashboard(assessment_id):
         selected_district=district,
         date_from=date_from, date_to=date_to,
         daily_registrations=daily_registrations,
-        district_stats=district_stats,
-        facility_stats=facility_stats,
-        cadre_stats=cadre_stats,
+        district_stats=bucket_stats(district_stats),
+        facility_stats=bucket_stats(facility_stats),
+        cadre_stats=bucket_stats(cadre_stats),
         day_attendance=day_attendance,
         unique_districts=unique_districts,
         unique_facilities=unique_facilities,
@@ -935,9 +946,9 @@ def admin_bank_details(assessment_id):
         total_count=total_count, filtered_count=len(bank_details),
         search=search, banks=banks, selected_bank=bank_filter,
         date_from=date_from, date_to=date_to,
-        bank_distribution=bank_distribution,
-        designation_stats=designation_stats,
-        branch_stats=branch_stats,
+        bank_distribution=bucket_stats(bank_distribution),
+        designation_stats=bucket_stats(designation_stats),
+        branch_stats=bucket_stats(branch_stats),
         daily_submissions=daily_submissions,
         unique_branches=unique_branches)
 
