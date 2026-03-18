@@ -65,6 +65,7 @@ tbody tr:hover{background:#E8F4F4}
    <div class="sub">{{ assessment.dates_label }}</div>
   </div>
   <div class="header-links">
+   <a href="{{ url_for('admin_bank_details', assessment_id=assessment.id) }}">&#127974; Bank Details</a>
    <a href="{{ url_for('admin_settings', assessment_id=assessment.id) }}">&#9881; Settings</a>
    <a href="{{ url_for('admin_assessments') }}">&larr; All Assessments</a>
    <a href="{{ url_for('admin_logout') }}">Logout</a>

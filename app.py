@@ -47,6 +47,7 @@ class Assessment(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     registrations = db.relationship('Registration', backref='assessment', lazy=True)
+    bank_details = db.relationship('BankDetail', backref='assessment', lazy=True)
 
     @property
     def dates_label(self):
@@ -67,6 +68,29 @@ class Assessment(db.Model):
             'campaign_days': self.campaign_days,
             'pin': self.pin,
             'is_active': self.is_active,
+        }
+
+
+class BankDetail(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    assessment_id = db.Column(db.Integer, db.ForeignKey('assessment.id'), nullable=False)
+    account_name = db.Column(db.String(200), nullable=False)
+    designation = db.Column(db.String(100), default='')
+    bank_name = db.Column(db.String(100), nullable=False)
+    account_number = db.Column(db.String(50), nullable=False)
+    branch = db.Column(db.String(100), default='')
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'assessment_id': self.assessment_id,
+            'account_name': self.account_name,
+            'designation': self.designation,
+            'bank_name': self.bank_name,
+            'account_number': self.account_number,
+            'branch': self.branch,
+            'submitted_at': self.submitted_at.strftime('%Y-%m-%d %H:%M:%S')
         }
 
 
@@ -304,6 +328,154 @@ def download_facility_data(assessment_id, facility_name):
             as_attachment=True, download_name=filename)
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ── Bank Details routes ─────────────────────────────────────────────
+
+@app.route('/bank/<int:assessment_id>')
+def bank_form(assessment_id):
+    """Show bank details form for a specific assessment"""
+    if session.get('participant_assessment_id') != assessment_id:
+        flash('Please select and enter PIN for your assessment.', 'error')
+        return redirect(url_for('index'))
+    assessment = Assessment.query.get_or_404(assessment_id)
+    if not assessment.is_active:
+        flash('This assessment is no longer active.', 'error')
+        return redirect(url_for('index'))
+    return render_template('bank_form.html', assessment=assessment)
+
+
+@app.route('/submit/bank', methods=['POST'])
+def submit_bank_details():
+    try:
+        data = request.get_json()
+        members = data.get('members', [])
+        assessment_id = data.get('assessment_id')
+        if not members:
+            return jsonify({'success': False, 'error': 'No members provided'}), 400
+        if not assessment_id:
+            return jsonify({'success': False, 'error': 'No assessment specified'}), 400
+        assessment = Assessment.query.get(assessment_id)
+        if not assessment:
+            return jsonify({'success': False, 'error': 'Assessment not found'}), 404
+        saved = []
+        for m in members:
+            bd = BankDetail(
+                assessment_id=assessment_id,
+                account_name=m.get('account_name', ''),
+                designation=m.get('designation', ''),
+                bank_name=m.get('bank_name', ''),
+                account_number=m.get('account_number', ''),
+                branch=m.get('branch', '')
+            )
+            db.session.add(bd)
+            saved.append(bd)
+        db.session.commit()
+        return jsonify({'success': True, 'count': len(saved)})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+def build_bank_excel(bank_details, sheet_title="Payment Tracker"):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = sheet_title
+
+    header_fill = PatternFill(start_color="2B5097", end_color="2B5097", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    gold_fill = PatternFill(start_color="D4A843", end_color="D4A843", fill_type="solid")
+    gold_font = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
+    cell_font = Font(name="Calibri", size=10)
+    cell_alignment = Alignment(vertical="center", wrap_text=True)
+    center_alignment = Alignment(horizontal="center", vertical="center")
+    med_border = Border(
+        left=Side(style='medium', color='000000'), right=Side(style='medium', color='000000'),
+        top=Side(style='medium', color='000000'), bottom=Side(style='medium', color='000000'))
+    thin_border = Border(
+        left=Side(style='thin', color='000000'), right=Side(style='thin', color='000000'),
+        top=Side(style='thin', color='000000'), bottom=Side(style='thin', color='000000'))
+    empty_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+
+    # Row 1: PAYMENT DETAILS banner
+    ws.merge_cells('A1:P1')
+    title_cell = ws['A1']
+    title_cell.value = "PAYMENT DETAILS"
+    title_cell.fill = header_fill
+    title_cell.font = Font(name="Calibri", size=12, bold=True, color="FFFFFF")
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    title_cell.border = med_border
+    ws.row_dimensions[1].height = 30
+
+    # Row 2: spacer
+    ws.row_dimensions[2].height = 8
+
+    # Row 3: Group headers
+    ws.merge_cells('G3:I3')
+    g1 = ws['G3']
+    g1.value = "Perdiem for travel night"
+    g1.fill = gold_fill
+    g1.font = gold_font
+    g1.alignment = header_alignment
+    g1.border = med_border
+
+    ws.merge_cells('J3:M3')
+    g2 = ws['J3']
+    g2.value = "Perdiem field days and SDA return day"
+    g2.fill = gold_fill
+    g2.font = gold_font
+    g2.alignment = header_alignment
+    g2.border = med_border
+
+    for c in ['A3', 'B3', 'C3', 'D3', 'E3', 'F3', 'N3', 'O3', 'P3']:
+        ws[c].fill = header_fill
+        ws[c].font = header_font
+        ws[c].alignment = header_alignment
+        ws[c].border = med_border
+    ws.row_dimensions[3].height = 34
+
+    # Row 4: Sub headers
+    sub_headers = ['No.', 'Bank Account Name', 'Designation', 'Bank Name', 'Account Number',
+                   'Bank Branch', 'Unit cost', '# of Nights', 'Sub-Total',
+                   'Unit cost', '# of Nights', 'Sub-Total', 'SDA',
+                   'Transport refund', 'Total Cost', 'Comments']
+    for i, h in enumerate(sub_headers, start=1):
+        cell = ws.cell(row=4, column=i, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = header_alignment
+        cell.border = med_border
+    ws.row_dimensions[4].height = 38
+
+    # Data rows
+    for idx, bd in enumerate(bank_details, start=1):
+        row_num = idx + 4
+        ws.cell(row=row_num, column=1, value=idx)
+        ws.cell(row=row_num, column=2, value=bd.account_name)
+        ws.cell(row=row_num, column=3, value=bd.designation)
+        ws.cell(row=row_num, column=4, value=bd.bank_name)
+        ws.cell(row=row_num, column=5, value=bd.account_number)
+        ws.cell(row=row_num, column=6, value=bd.branch)
+        # Empty perdiem columns (7-16)
+        for col in range(1, 17):
+            cell = ws.cell(row=row_num, column=col)
+            cell.font = cell_font
+            cell.border = thin_border
+            cell.alignment = cell_alignment
+            if col == 1:
+                cell.alignment = center_alignment
+            if col >= 7:
+                cell.fill = empty_fill
+                cell.alignment = center_alignment
+        ws.row_dimensions[row_num].height = 22
+
+    # Column widths
+    widths = [5, 24, 16, 18, 16, 15, 10, 12, 11, 10, 12, 11, 9, 15, 13, 21]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+    return wb
 
 
 # ── Admin routes ────────────────────────────────────────────────────
@@ -599,6 +771,49 @@ def clear_all(assessment_id):
     db.session.commit()
     flash('All registrations cleared.', 'success')
     return redirect(url_for('admin_dashboard', assessment_id=assessment_id))
+
+
+@app.route('/admin/bank/<int:assessment_id>')
+@login_required
+def admin_bank_details(assessment_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+    bank_details = BankDetail.query.filter_by(assessment_id=assessment_id).order_by(BankDetail.submitted_at.desc()).all()
+    return render_template('admin_bank.html', assessment=assessment, bank_details=bank_details)
+
+
+@app.route('/admin/bank/delete/<int:assessment_id>/<int:bd_id>', methods=['POST'])
+@login_required
+def delete_bank_detail(assessment_id, bd_id):
+    bd = BankDetail.query.get_or_404(bd_id)
+    db.session.delete(bd)
+    db.session.commit()
+    flash('Bank detail deleted.', 'success')
+    return redirect(url_for('admin_bank_details', assessment_id=assessment_id))
+
+
+@app.route('/admin/bank/clear/<int:assessment_id>', methods=['POST'])
+@login_required
+def clear_bank_details(assessment_id):
+    BankDetail.query.filter_by(assessment_id=assessment_id).delete()
+    db.session.commit()
+    flash('All bank details cleared.', 'success')
+    return redirect(url_for('admin_bank_details', assessment_id=assessment_id))
+
+
+@app.route('/admin/bank/download/<int:assessment_id>')
+@login_required
+def download_bank_excel(assessment_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+    bank_details = BankDetail.query.filter_by(assessment_id=assessment_id).order_by(BankDetail.submitted_at.desc()).all()
+    wb = build_bank_excel(bank_details)
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    safe_name = assessment.name.replace(' ', '_')
+    filename = f'CHAI_Payment_{safe_name}_{datetime.now().strftime("%Y-%m-%d")}.xlsx'
+    return send_file(output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True, download_name=filename)
 
 
 # ── API ─────────────────────────────────────────────────────────────

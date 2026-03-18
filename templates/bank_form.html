@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CHAI Uganda - Bank Details</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:#1F2937;-webkit-font-smoothing:antialiased}
+.h{display:none!important}
+@keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.container{max-width:800px;margin:0 auto;padding:16px}
+.header{background:linear-gradient(135deg,#92400E,#78350F);color:white;padding:24px;border-radius:12px;margin-bottom:20px;position:relative}
+.header h1{font-family:'Instrument Serif',serif;font-size:24px;margin-bottom:4px}
+.header p{font-size:13px;opacity:.75}
+.header .logo-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.header .logo-row img{width:40px;height:40px;border-radius:8px;object-fit:contain;background:white;padding:4px}
+.net-badge{position:absolute;top:16px;right:16px;display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600}
+.net-badge.on{background:rgba(5,150,105,.25);color:#A7F3D0}.net-badge.off{background:rgba(220,38,38,.25);color:#FCA5A5}
+.alert{padding:14px 18px;border-radius:8px;margin-bottom:16px;animation:slideIn .3s ease;font-size:14px;display:none}
+.alert-success{background:#D1FAE5;border:1px solid #A7F3D0;color:#065F46}
+.alert-error{background:#FEE2E2;border:1px solid #FECACA;color:#991B1B}
+.card{background:white;padding:24px;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;border:1px solid #E5E7EB}
+.card h2{color:#0A3D3E;font-size:18px;margin-bottom:16px;font-family:'Instrument Serif',serif}
+.card.gold-border{border-left:4px solid #D4A843}
+.fg{margin-bottom:16px}
+.fg label{display:block;margin-bottom:5px;color:#374151;font-weight:600;font-size:13px}
+.fg .req{color:#DC2626}
+.fg input,.fg select{width:100%;padding:11px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:15px;font-family:inherit;color:#1F2937;background:white;-webkit-appearance:none;transition:.2s}
+.fg input:focus,.fg select:focus{outline:none;border-color:#D4A843;box-shadow:0 0 0 3px rgba(212,168,67,.08)}
+.fg input::placeholder{color:#9CA3AF}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn{padding:14px 24px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s;display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%}
+.btn:active{transform:scale(.98)}.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-gold{background:#D4A843;color:white}.btn-gold:hover{background:#C49A3A}
+.btn-green{background:#059669;color:white}
+.btn-gray{background:#6B7280;color:white}
+.btn-red{background:#DC2626;color:white;padding:8px 14px;font-size:13px;width:auto;border-radius:6px}
+.action-row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}.action-row .btn{flex:1;min-width:160px}
+table{width:100%;border-collapse:collapse;min-width:600px;font-size:13px}
+thead{background:#92400E;color:white}
+th,td{padding:10px 12px;text-align:left;border:1px solid #E5E7EB}
+th{font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.3px}
+tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#FEF3C7}
+.count-badge{background:#FEF3C7;color:#92400E;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700;margin-left:8px}
+.instructions{background:#FEF3C7;border:1px solid #FDE68A;padding:18px;border-radius:10px;margin-bottom:20px}
+.instructions h3{color:#92400E;margin-bottom:10px;font-size:14px}
+.instructions ol{padding-left:18px;color:#92400E;font-size:13px}
+.instructions li{margin-bottom:5px}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1F2937;color:white;padding:10px 24px;border-radius:30px;font-size:13px;font-weight:500;z-index:300;opacity:0;transition:.3s;pointer-events:none}
+.toast.show{opacity:1}
+@media(max-width:600px){.row2{grid-template-columns:1fr}.action-row{flex-direction:column}.action-row .btn{min-width:100%}}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+ <div class="logo-row">
+  <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2ZmZiIgcng9IjEyIi8+PHRleHQgeD0iNTAiIHk9IjM4IiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtc2l6ZT0iMTgiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjMEY1QjVDIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5DSEFJPC90ZXh0Pjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iOCIgZmlsbD0iIzZCNzI4MCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Q2xpbnRvbiBIZWFsdGg8L3RleHQ+PHRleHQgeD0iNTAiIHk9IjY1IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSI4IiBmaWxsPSIjNkI3MjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5BY2Nlc3MgSW5pdGlhdGl2ZTwvdGV4dD48L3N2Zz4=" alt="CHAI">
+  <div>
+   <div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.5px">Assessment Team</div>
+   <h1>Payment Details</h1>
+  </div>
+ </div>
+ <p>{{ assessment.name }} &middot; Bank account details for per diem payment</p>
+ <div class="net-badge on" id="netBadge"><span>&#9679;</span> <span>Online</span></div>
+</div>
+
+<div id="aAlert" class="alert"></div>
+
+<div class="card gold-border">
+ <h2>Enter Team Member Details</h2>
+ <div class="fg"><label>Bank Account Name <span class="req">*</span></label><input type="text" id="aAccName" placeholder="Full name on bank account"></div>
+ <div class="fg"><label>Designation</label><input type="text" id="aDesig" placeholder="e.g. District Mentor, TA"></div>
+ <div class="fg"><label>Bank Name <span class="req">*</span></label>
+  <select id="aBankName">
+   <option value="">Select bank...</option>
+   <option value="Stanbic Bank">Stanbic Bank</option>
+   <option value="DFCU Bank">DFCU Bank</option>
+   <option value="Centenary Bank">Centenary Bank</option>
+   <option value="Equity Bank Uganda">Equity Bank Uganda</option>
+   <option value="Absa Bank Uganda">Absa Bank Uganda</option>
+   <option value="PostBank Uganda">PostBank Uganda</option>
+   <option value="Bank of Africa">Bank of Africa</option>
+   <option value="Housing Finance Bank">Housing Finance Bank</option>
+   <option value="Finance Trust Bank">Finance Trust Bank</option>
+   <option value="Opportunity Bank">Opportunity Bank</option>
+  </select>
+ </div>
+ <div class="row2">
+  <div class="fg"><label>Account Number <span class="req">*</span></label><input type="text" id="aAccNo" placeholder="Account number"></div>
+  <div class="fg"><label>Bank Branch</label><input type="text" id="aBranch" placeholder="Branch name"></div>
+ </div>
+ <button class="btn btn-gold" onclick="addMember()">&#10133; Add Team Member</button>
+</div>
+
+<div id="aTableWrap" class="card h" style="overflow-x:auto">
+ <h2>Team Members <span class="count-badge" id="aCount">0</span></h2>
+ <div style="overflow-x:auto"><table><thead><tr>
+  <th>No.</th><th>Bank Account Name</th><th>Designation</th><th>Bank Name</th><th>Account Number</th><th>Bank Branch</th><th>Action</th>
+ </tr></thead><tbody id="aTbody"></tbody></table></div>
+ <div class="action-row">
+  <button class="btn btn-green" onclick="submitAll()">&#128228; Submit to Server</button>
+  <button class="btn btn-gray" onclick="dlXLS()">&#128229; Download Excel</button>
+  <button class="btn" style="background:#EF4444;color:white" onclick="clearAll()">&#128465; Clear All</button>
+ </div>
+</div>
+
+<div id="aInstr" class="instructions"><h3>&#128204; Instructions:</h3><ol>
+<li>Enter your bank account details above</li>
+<li>Click "Add Team Member" to add to the list</li>
+<li>Repeat for all assessment team members</li>
+<li>Click "Submit to Server" to send the payment file</li>
+<li>Per diem columns will be filled by the manager</li>
+</ol></div>
+
+<div style="text-align:center;margin-top:20px;padding:16px;display:flex;gap:20px;justify-content:center">
+ <a href="/register/{{ assessment.id }}" style="color:#0F5B5C;font-size:13px;text-decoration:none;font-weight:600">&#128203; Field Activity</a>
+ <a href="/" style="color:#6B7280;font-size:12px;text-decoration:none">&larr; Switch Assessment</a>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const ASSESSMENT_ID = {{ assessment.id }};
+const SK = 'chai_bank_' + ASSESSMENT_ID;
+let members = JSON.parse(localStorage.getItem(SK) || '[]');
+
+function save(){localStorage.setItem(SK, JSON.stringify(members))}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+function showAlert(msg,type){const el=document.getElementById('aAlert');el.className='alert alert-'+type;el.innerHTML=msg;el.style.display='block';setTimeout(()=>el.style.display='none',5000)}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+function updNet(){
+  const on=navigator.onLine;const el=document.getElementById('netBadge');
+  el.className='net-badge '+(on?'on':'off');
+  el.innerHTML='<span>&#9679;</span> <span>'+(on?'Online':'Offline')+'</span>';
+}
+window.addEventListener('online',updNet);window.addEventListener('offline',updNet);
+
+function addMember(){
+  const accName=document.getElementById('aAccName').value.trim();
+  const desig=document.getElementById('aDesig').value.trim();
+  const bankName=document.getElementById('aBankName').value;
+  const accNo=document.getElementById('aAccNo').value.trim();
+  const branch=document.getElementById('aBranch').value.trim();
+  if(!accName||!bankName||!accNo){showAlert('Please fill all required fields','error');return}
+  members.push({accName,desig,bankName,accNo,branch,ts:Date.now()});
+  save();updTable();
+  ['aAccName','aDesig','aAccNo','aBranch'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('aBankName').value='';
+  showAlert('\u2705 Team member added!','success');
+}
+
+function delMember(i){if(confirm('Delete this member?')){members.splice(i,1);save();updTable()}}
+
+function updTable(){
+  const tb=document.getElementById('aTbody');tb.innerHTML='';
+  members.forEach((m,i)=>{
+    tb.innerHTML+='<tr><td>'+(i+1)+'</td><td>'+esc(m.accName)+'</td><td>'+esc(m.desig)+'</td><td>'+esc(m.bankName)+'</td><td>'+esc(m.accNo)+'</td><td>'+esc(m.branch)+'</td><td><button class="btn-red" onclick="delMember('+i+')">Delete</button></td></tr>';
+  });
+  document.getElementById('aCount').textContent=members.length;
+  document.getElementById('aTableWrap').classList.toggle('h',!members.length);
+  document.getElementById('aInstr').style.display=members.length?'none':'block';
+}
+
+function clearAll(){if(!members.length)return;if(confirm('Clear all?')){members=[];save();updTable();showAlert('Cleared','success')}}
+
+async function submitAll(){
+  if(!members.length){toast('Add members first');return}
+  if(!navigator.onLine){toast('You are offline');return}
+  const payload=members.map(m=>({account_name:m.accName,designation:m.desig,bank_name:m.bankName,account_number:m.accNo,branch:m.branch}));
+  try{
+    const r=await fetch('/submit/bank',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({members:payload,assessment_id:ASSESSMENT_ID})});
+    const d=await r.json();
+    if(d.success){
+      members=[];save();updTable();
+      showAlert('\u2705 '+d.count+' team members submitted!','success');
+    } else showAlert('Error: '+(d.error||'Unknown'),'error');
+  }catch(e){showAlert('Network error','error')}
+}
+
+function dlXLS(){
+  if(!members.length){toast('Add members first');return}
+  const wb=XLSX.utils.book_new();
+  const hdr=['No.','Bank Account Name','Designation','Bank Name','Account Number','Bank Branch',
+    'Unit cost','# of Nights','Sub-Total','Unit cost','# of Nights','Sub-Total','SDA',
+    'Transport refund','Total Cost','Comments'];
+  const rows=[hdr];
+  members.forEach((m,i)=>{rows.push([i+1,m.accName,m.desig,m.bankName,m.accNo,m.branch,'','','','','','','','','',''])});
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:5},{wch:24},{wch:16},{wch:18},{wch:16},{wch:15},{wch:10},{wch:12},{wch:11},{wch:10},{wch:12},{wch:11},{wch:9},{wch:15},{wch:13},{wch:21}];
+  XLSX.utils.book_append_sheet(wb,ws,'Payment Tracker');
+  XLSX.writeFile(wb,'CHAI_Payment_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  showAlert('\u2705 Excel downloaded!','success');
+}
+
+updTable();updNet();
+</script>
+</body>
+</html>
