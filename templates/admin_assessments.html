@@ -78,9 +78,15 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:
    </div>
    <div class="row2">
     <div class="fg">
-     <label>Activity Dates</label>
-     <input type="text" name="dates_label" placeholder="e.g. 30th Nov to 7th Dec 2025">
+     <label>Start Date <span class="req">*</span></label>
+     <input type="date" name="start_date" required>
     </div>
+    <div class="fg">
+     <label>End Date <span class="req">*</span></label>
+     <input type="date" name="end_date" required>
+    </div>
+   </div>
+   <div class="row2">
     <div class="fg">
      <label>Campaign Days <span class="req">*</span></label>
      <select name="campaign_days">

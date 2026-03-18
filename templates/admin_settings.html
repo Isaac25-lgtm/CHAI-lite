@@ -56,10 +56,17 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:
     <div class="hint">Displayed as the heading when participants open this assessment</div>
    </div>
 
-   <div class="fg">
-    <label>Activity Dates</label>
-    <input type="text" name="activity_dates" value="{{ activity_dates }}" placeholder="e.g. 30th November to 7th December 2025">
-    <div class="hint">Displayed below the assessment name</div>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="fg">
+     <label>Start Date</label>
+     <input type="date" name="start_date" value="{{ assessment.start_date.strftime('%Y-%m-%d') if assessment.start_date else '' }}">
+     <div class="hint">Activity start date</div>
+    </div>
+    <div class="fg">
+     <label>End Date</label>
+     <input type="date" name="end_date" value="{{ assessment.end_date.strftime('%Y-%m-%d') if assessment.end_date else '' }}">
+     <div class="hint">Activity end date</div>
+    </div>
    </div>
 
    <div class="fg">

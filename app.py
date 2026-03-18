@@ -40,7 +40,8 @@ def ordinal(n):
 class Assessment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
-    dates_label = db.Column(db.String(200), nullable=False, default='')
+    start_date = db.Column(db.Date, nullable=True)
+    end_date = db.Column(db.Date, nullable=True)
     campaign_days = db.Column(db.Integer, default=3)
     pin = db.Column(db.String(10), nullable=False)
     created_by = db.Column(db.String(100), nullable=False)
@@ -48,11 +49,22 @@ class Assessment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     registrations = db.relationship('Registration', backref='assessment', lazy=True)
 
+    @property
+    def dates_label(self):
+        """Format dates nicely for display"""
+        if self.start_date and self.end_date:
+            return f"{self.start_date.strftime('%d %b %Y')} to {self.end_date.strftime('%d %b %Y')}"
+        elif self.start_date:
+            return f"From {self.start_date.strftime('%d %b %Y')}"
+        return ''
+
     def to_dict(self):
         return {
             'id': self.id,
             'name': self.name,
             'dates_label': self.dates_label,
+            'start_date': self.start_date.strftime('%Y-%m-%d') if self.start_date else '',
+            'end_date': self.end_date.strftime('%Y-%m-%d') if self.end_date else '',
             'campaign_days': self.campaign_days,
             'pin': self.pin,
             'is_active': self.is_active,
@@ -336,12 +348,28 @@ def admin_assessments():
 @login_required
 def create_assessment():
     name = request.form.get('name', '').strip()
-    dates_label = request.form.get('dates_label', '').strip()
+    start_date_str = request.form.get('start_date', '').strip()
+    end_date_str = request.form.get('end_date', '').strip()
     campaign_days = request.form.get('campaign_days', '3')
     pin = request.form.get('pin', '').strip()
 
     if not name:
         flash('Assessment name is required.', 'error')
+        return redirect(url_for('admin_assessments'))
+
+    # Parse dates
+    start_date = None
+    end_date = None
+    try:
+        if start_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        if start_date and end_date and end_date < start_date:
+            flash('End date cannot be before start date.', 'error')
+            return redirect(url_for('admin_assessments'))
+    except ValueError:
+        flash('Invalid date format.', 'error')
         return redirect(url_for('admin_assessments'))
 
     try:
@@ -356,7 +384,6 @@ def create_assessment():
         flash('PIN must be at least 3 characters.', 'error')
         return redirect(url_for('admin_assessments'))
 
-    # Check PIN uniqueness among active assessments
     existing = Assessment.query.filter_by(pin=pin, is_active=True).first()
     if existing:
         flash('This PIN is already in use by another active assessment. Choose a different one.', 'error')
@@ -364,7 +391,8 @@ def create_assessment():
 
     assessment = Assessment(
         name=name,
-        dates_label=dates_label,
+        start_date=start_date,
+        end_date=end_date,
         campaign_days=campaign_days_int,
         pin=pin,
         created_by=session.get('admin_user', 'admin')
@@ -478,14 +506,20 @@ def admin_settings(assessment_id):
 
     if request.method == 'POST':
         name = request.form.get('activity_name', '').strip()
-        dates_label = request.form.get('activity_dates', '').strip()
+        start_date_str = request.form.get('start_date', '').strip()
+        end_date_str = request.form.get('end_date', '').strip()
         campaign_days = request.form.get('campaign_days', '3')
         pin = request.form.get('pin', '').strip()
 
         if name:
             assessment.name = name
-        if dates_label:
-            assessment.dates_label = dates_label
+        try:
+            if start_date_str:
+                assessment.start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            if end_date_str:
+                assessment.end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
         if pin and len(pin) >= 3:
             # Check uniqueness
             existing = Assessment.query.filter(
@@ -509,8 +543,7 @@ def admin_settings(assessment_id):
 
     return render_template('admin_settings.html', assessment=assessment,
                          campaign_days=assessment.campaign_days,
-                         activity_name=assessment.name,
-                         activity_dates=assessment.dates_label)
+                         activity_name=assessment.name)
 
 
 @app.route('/admin/download/excel/<int:assessment_id>')
