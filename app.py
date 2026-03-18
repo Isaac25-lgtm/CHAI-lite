@@ -234,7 +234,20 @@ def join_assessment():
 
     # Store in session
     session['participant_assessment_id'] = assessment.id
-    return redirect(url_for('registration_form', assessment_id=assessment.id))
+    return redirect(url_for('participant_menu', assessment_id=assessment.id))
+
+
+@app.route('/menu/<int:assessment_id>')
+def participant_menu(assessment_id):
+    """Show menu with Field Activity and Bank Details options"""
+    if session.get('participant_assessment_id') != assessment_id:
+        flash('Please select and enter PIN for your assessment.', 'error')
+        return redirect(url_for('index'))
+    assessment = Assessment.query.get_or_404(assessment_id)
+    if not assessment.is_active:
+        flash('This assessment is no longer active.', 'error')
+        return redirect(url_for('index'))
+    return render_template('participant_menu.html', assessment=assessment)
 
 
 @app.route('/register/<int:assessment_id>')

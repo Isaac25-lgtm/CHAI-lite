@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CHAI Uganda - {{ assessment.name }}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:#1F2937;-webkit-font-smoothing:antialiased}
+.container{max-width:800px;margin:0 auto;padding:16px}
+.header{background:linear-gradient(135deg,#0F5B5C,#0A3D3E);color:white;padding:24px;border-radius:12px;margin-bottom:20px;position:relative}
+.header h1{font-family:'Instrument Serif',serif;font-size:24px;margin-bottom:4px}
+.header p{font-size:13px;opacity:.75}
+.header .logo-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.header .logo-row img{width:40px;height:40px;border-radius:8px;object-fit:contain;background:white;padding:4px}
+.net-badge{position:absolute;top:16px;right:16px;display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600}
+.net-badge.on{background:rgba(5,150,105,.25);color:#A7F3D0}
+.menu-item{background:white;border:2px solid #F3F4F6;border-radius:12px;padding:20px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:16px;transition:.15s;text-decoration:none;color:inherit}
+.menu-item:hover{border-color:#E5E7EB;background:#F9FAFB}
+.menu-item:active{background:#F3F4F6}
+.menu-item .mi-icon{width:50px;height:50px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+.menu-item .mi-title{font-size:16px;font-weight:600}
+.menu-item .mi-desc{font-size:12px;color:#6B7280;margin-top:2px}
+.arrow{font-size:20px;color:#D1D5DB;margin-left:auto}
+.switch-link{text-align:center;margin-top:20px}
+.switch-link a{color:#6B7280;font-size:12px;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+ <div class="logo-row">
+  <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2ZmZiIgcng9IjEyIi8+PHRleHQgeD0iNTAiIHk9IjM4IiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtc2l6ZT0iMTgiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjMEY1QjVDIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5DSEFJPC90ZXh0Pjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iOCIgZmlsbD0iIzZCNzI4MCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Q2xpbnRvbiBIZWFsdGg8L3RleHQ+PHRleHQgeD0iNTAiIHk9IjY1IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSI4IiBmaWxsPSIjNkI3MjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5BY2Nlc3MgSW5pdGlhdGl2ZTwvdGV4dD48L3N2Zz4=" alt="CHAI">
+  <div>
+   <div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.5px">Field Operations</div>
+   <h1>{{ assessment.name }}</h1>
+  </div>
+ </div>
+ <p>{{ assessment.dates_label }} &middot; CHAI Uganda</p>
+ <div class="net-badge on"><span>&#9679;</span> <span>Online</span></div>
+</div>
+
+<a href="{{ url_for('registration_form', assessment_id=assessment.id) }}" class="menu-item">
+ <div class="mi-icon" style="background:#E8F4F4">&#128203;</div>
+ <div style="flex:1">
+  <div class="mi-title">Field Activity</div>
+  <div class="mi-desc">Facility participants &mdash; MoMo registration &amp; attendance</div>
+ </div>
+ <span class="arrow">&rsaquo;</span>
+</a>
+
+<a href="{{ url_for('bank_form', assessment_id=assessment.id) }}" class="menu-item">
+ <div class="mi-icon" style="background:#F5ECD7">&#127974;</div>
+ <div style="flex:1">
+  <div class="mi-title">Assessment Team Payment</div>
+  <div class="mi-desc">Submit bank details for per diem payment</div>
+ </div>
+ <span class="arrow">&rsaquo;</span>
+</a>
+
+<div class="switch-link">
+ <a href="/">&larr; Switch Assessment</a>
+</div>
+
+</div>
+</body>
+</html>

@@ -117,7 +117,7 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#FEF3C7}
 </ol></div>
 
 <div style="text-align:center;margin-top:20px;padding:16px;display:flex;gap:20px;justify-content:center">
- <a href="/register/{{ assessment.id }}" style="color:#0F5B5C;font-size:13px;text-decoration:none;font-weight:600">&#128203; Field Activity</a>
+ <a href="{{ url_for('participant_menu', assessment_id=assessment.id) }}" style="color:#92400E;font-size:13px;text-decoration:none;font-weight:600">&larr; Back to Menu</a>
  <a href="/" style="color:#6B7280;font-size:12px;text-decoration:none">&larr; Switch Assessment</a>
 </div>
 
