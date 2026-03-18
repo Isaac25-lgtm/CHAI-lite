@@ -15,10 +15,14 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:
 .header .sub{font-size:12px;opacity:.7}
 .header-links{display:flex;gap:16px;align-items:center}
 .header-links a{color:#A7F3D0;font-size:13px;text-decoration:none;font-weight:500}
-.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px}
-.stat-card{background:white;padding:20px;border-radius:12px;border:1px solid #E5E7EB;text-align:center}
-.stat-card .num{font-size:32px;font-weight:700;color:#0F5B5C}
-.stat-card .label{font-size:12px;color:#6B7280;margin-top:4px}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:white;padding:18px;border-radius:12px;border:1px solid #E5E7EB;text-align:center}
+.stat-card .num{font-size:28px;font-weight:700;color:#0F5B5C}
+.stat-card .num.gold{color:#D4A843}
+.stat-card .num.purple{color:#7C3AED}
+.stat-card .num.blue{color:#2563EB}
+.stat-card .num.rose{color:#E11D48}
+.stat-card .label{font-size:11px;color:#6B7280;margin-top:4px}
 .card{background:white;padding:24px;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;border:1px solid #E5E7EB}
 .card h2{color:#0A3D3E;font-size:18px;margin-bottom:16px;font-family:'Instrument Serif',serif}
 .filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px}
@@ -47,6 +51,7 @@ tbody tr:hover{background:#E8F4F4}
 .chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:20px}
 .chart-card{background:white;padding:20px;border-radius:12px;border:1px solid #E5E7EB}
 .chart-card h3{font-size:14px;color:#0A3D3E;margin-bottom:12px;font-family:'Instrument Serif',serif}
+.chart-full{grid-column:1/-1}
 .flash{padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px}
 .flash-error{background:#FEE2E2;border:1px solid #FECACA;color:#991B1B}
 .flash-success{background:#D1FAE5;border:1px solid #A7F3D0;color:#065F46}
@@ -54,7 +59,7 @@ tbody tr:hover{background:#E8F4F4}
 .empty{text-align:center;padding:40px;color:#9CA3AF}
 .pin-display{background:#E8F4F4;border:1px solid #A7F3D0;border-radius:8px;padding:10px 16px;font-size:13px;color:#0A3D3E;margin-bottom:16px}
 .pin-display strong{font-size:18px;letter-spacing:4px;color:#0F5B5C}
-@media(max-width:600px){.filter-row{flex-direction:column}.action-row{flex-direction:column}}
+@media(max-width:600px){.filter-row{flex-direction:column}.action-row{flex-direction:column}.chart-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -84,12 +89,54 @@ tbody tr:hover{background:#E8F4F4}
   Participant PIN: <strong>{{ assessment.pin }}</strong> &mdash; Share this with your field team so they can access this assessment.
  </div>
 
+ <!-- Stats Cards -->
  <div class="stats-row">
-  <div class="stat-card"><div class="num">{{ total_count }}</div><div class="label">Total Registrations</div></div>
-  <div class="stat-card"><div class="num">{{ today_count }}</div><div class="label">Today's Registrations</div></div>
+  <div class="stat-card"><div class="num">{{ total_count }}</div><div class="label">Total Participants</div></div>
+  <div class="stat-card"><div class="num blue">{{ today_count }}</div><div class="label">Registered Today</div></div>
+  <div class="stat-card"><div class="num purple">{{ unique_districts }}</div><div class="label">Districts Covered</div></div>
+  <div class="stat-card"><div class="num gold">{{ unique_facilities }}</div><div class="label">Facilities Reached</div></div>
+  <div class="stat-card"><div class="num rose">{{ bank_count }}</div><div class="label">Bank Details Submitted</div></div>
   <div class="stat-card"><div class="num">{{ filtered_count }}</div><div class="label">Filtered Results</div></div>
  </div>
 
+ <!-- Analytics Charts -->
+ {% if total_count > 0 %}
+ <div class="chart-grid">
+
+  <!-- Enrollment Trend Line -->
+  <div class="chart-card chart-full">
+   <h3>Enrollment Trend</h3>
+   <canvas id="trendChart" height="80"></canvas>
+  </div>
+
+  <!-- District Distribution (Doughnut) -->
+  <div class="chart-card">
+   <h3>Participants by District</h3>
+   <canvas id="districtChart"></canvas>
+  </div>
+
+  <!-- Facility Distribution (Horizontal Bar) -->
+  <div class="chart-card">
+   <h3>Participants by Facility</h3>
+   <canvas id="facilityChart"></canvas>
+  </div>
+
+  <!-- Cadre Breakdown (Pie) -->
+  <div class="chart-card">
+   <h3>Cadre Breakdown</h3>
+   <canvas id="cadreChart"></canvas>
+  </div>
+
+  <!-- Day Attendance (Bar) -->
+  <div class="chart-card">
+   <h3>Attendance per Campaign Day</h3>
+   <canvas id="dayChart"></canvas>
+  </div>
+
+ </div>
+ {% endif %}
+
+ <!-- Filters -->
  <div class="card">
   <h2>Filters</h2>
   <form method="GET">
@@ -117,6 +164,7 @@ tbody tr:hover{background:#E8F4F4}
   {% endif %}
  </div>
 
+ <!-- Registrations Table -->
  <div class="card">
   <h2>Registrations ({{ filtered_count }})</h2>
   {% if registrations %}
@@ -163,42 +211,71 @@ tbody tr:hover{background:#E8F4F4}
   <div class="empty">No registrations found</div>
   {% endif %}
  </div>
-
- <div class="chart-grid">
-  <div class="chart-card">
-   <h3>Registration Progress (Last 30 Days)</h3>
-   <canvas id="dailyChart"></canvas>
-  </div>
-  <div class="chart-card">
-   <h3>Top Districts</h3>
-   <canvas id="districtChart"></canvas>
-  </div>
-  <div class="chart-card">
-   <h3>Top Facilities</h3>
-   <canvas id="facilityChart"></canvas>
-  </div>
- </div>
 </div>
 
+{% if total_count > 0 %}
 <script>
-new Chart(document.getElementById('dailyChart').getContext('2d'), {
+const colors = ['#0F5B5C','#D4A843','#7C3AED','#2563EB','#E11D48','#059669','#F59E0B','#6366F1','#EC4899','#14B8A6','#8B5CF6','#EF4444','#06B6D4','#84CC16','#F97316'];
+
+// Enrollment Trend (Line/Area)
+new Chart(document.getElementById('trendChart').getContext('2d'), {
  type:'line',
- data:{labels:[{% for dr in daily_registrations %}'{{ dr.date }}'{% if not loop.last %},{% endif %}{% endfor %}],
- datasets:[{label:'Registrations',data:[{% for dr in daily_registrations %}{{ dr.count }}{% if not loop.last %},{% endif %}{% endfor %}],borderColor:'#0F5B5C',backgroundColor:'rgba(15,91,92,.1)',fill:true,tension:0.3}]},
- options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+ data:{
+  labels:[{% for dr in daily_registrations %}'{{ dr.date }}'{% if not loop.last %},{% endif %}{% endfor %}],
+  datasets:[{
+   label:'Enrollments',
+   data:[{% for dr in daily_registrations %}{{ dr.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+   borderColor:'#0F5B5C',backgroundColor:'rgba(15,91,92,.12)',fill:true,tension:0.3,
+   pointBackgroundColor:'#0F5B5C',pointRadius:5,pointHoverRadius:7,borderWidth:2.5
+  }]
+ },
+ options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{title:function(t){return 'Date: '+t[0].label},label:function(t){return t.parsed.y+' participant'+(t.parsed.y!==1?'s':'')}}}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}},x:{ticks:{maxRotation:45}}}}
 });
+
+// District Distribution (Doughnut)
 new Chart(document.getElementById('districtChart').getContext('2d'), {
- type:'bar',
- data:{labels:[{% for ds in district_stats %}'{{ ds.district }}'{% if not loop.last %},{% endif %}{% endfor %}],
- datasets:[{label:'Registrations',data:[{% for ds in district_stats %}{{ ds.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:'#0F5B5C'}]},
- options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+ type:'doughnut',
+ data:{
+  labels:[{% for ds in district_stats %}'{{ ds.district }}'{% if not loop.last %},{% endif %}{% endfor %}],
+  datasets:[{data:[{% for ds in district_stats %}{{ ds.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:colors.slice(0,{{ district_stats|length }}),borderWidth:2,borderColor:'#fff'}]
+ },
+ options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10}},tooltip:{callbacks:{label:function(t){return t.label+': '+t.parsed+' participant'+(t.parsed!==1?'s':'')+' ('+Math.round(t.parsed/{{ total_count }}*100)+'%)'}}}}}
 });
+
+// Facility Distribution (Horizontal Bar)
 new Chart(document.getElementById('facilityChart').getContext('2d'), {
  type:'bar',
- data:{labels:[{% for fs in facility_stats %}'{{ fs.facility }}'{% if not loop.last %},{% endif %}{% endfor %}],
- datasets:[{label:'Registrations',data:[{% for fs in facility_stats %}{{ fs.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:'#D4A843'}]},
- options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true}}}
+ data:{
+  labels:[{% for fs in facility_stats %}'{{ fs.facility }}'{% if not loop.last %},{% endif %}{% endfor %}],
+  datasets:[{label:'Participants',data:[{% for fs in facility_stats %}{{ fs.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:colors.slice(0,{{ facility_stats|length }}),borderRadius:6}]
+ },
+ options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}
+});
+
+// Cadre Breakdown (Pie)
+new Chart(document.getElementById('cadreChart').getContext('2d'), {
+ type:'pie',
+ data:{
+  labels:[{% for cs in cadre_stats %}'{{ cs.cadre }}'{% if not loop.last %},{% endif %}{% endfor %}],
+  datasets:[{data:[{% for cs in cadre_stats %}{{ cs.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:colors.slice(0,{{ cadre_stats|length }}),borderWidth:2,borderColor:'#fff'}]
+ },
+ options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10}}}}
+});
+
+// Day Attendance (Vertical Bar)
+{% set ordinals_js = "['','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th','13th','14th','15th','16th','17th','18th','19th','20th','21st','22nd','23rd','24th','25th','26th','27th','28th','29th','30th']" %}
+new Chart(document.getElementById('dayChart').getContext('2d'), {
+ type:'bar',
+ data:{
+  labels:[{% for da in day_attendance %}{{ ordinals_js }}[{{ da.day }}]{% if not loop.last %},{% endif %}{% endfor %}],
+  datasets:[
+   {label:'Attended',data:[{% for da in day_attendance %}{{ da.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:'#059669',borderRadius:6},
+   {label:'Absent',data:[{% for da in day_attendance %}{{ da.total - da.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:'#E5E7EB',borderRadius:6}
+  ]
+ },
+ options:{responsive:true,plugins:{legend:{position:'top',labels:{font:{size:11}}},tooltip:{callbacks:{label:function(t){var total={{ total_count }};var pct=Math.round(t.parsed.y/total*100);return t.dataset.label+': '+t.parsed.y+' ('+pct+'%)'}}}},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{stepSize:1}}}}
 });
 </script>
+{% endif %}
 </body>
 </html>

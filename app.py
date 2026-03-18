@@ -699,23 +699,46 @@ def admin_dashboard(assessment_id):
     today_count = Registration.query.filter_by(assessment_id=assessment_id).filter(
         db.func.date(Registration.submitted_at) == today).count()
 
-    thirty_days_ago = today - timedelta(days=30)
+    # Enrollment trend by date
     daily_registrations = db.session.query(
         db.func.date(Registration.submitted_at).label('date'),
         db.func.count(Registration.id).label('count')
-    ).filter(Registration.assessment_id == assessment_id,
-             Registration.submitted_at >= thirty_days_ago
+    ).filter(Registration.assessment_id == assessment_id
     ).group_by(db.func.date(Registration.submitted_at)).order_by('date').all()
 
+    # District breakdown
     district_stats = db.session.query(
         Registration.district, db.func.count(Registration.id).label('count')
     ).filter_by(assessment_id=assessment_id
-    ).group_by(Registration.district).order_by(db.func.count(Registration.id).desc()).limit(10).all()
+    ).group_by(Registration.district).order_by(db.func.count(Registration.id).desc()).all()
 
+    # Facility breakdown
     facility_stats = db.session.query(
         Registration.facility, db.func.count(Registration.id).label('count')
     ).filter_by(assessment_id=assessment_id
-    ).group_by(Registration.facility).order_by(db.func.count(Registration.id).desc()).limit(10).all()
+    ).group_by(Registration.facility).order_by(db.func.count(Registration.id).desc()).all()
+
+    # Cadre breakdown
+    cadre_stats = db.session.query(
+        Registration.cadre, db.func.count(Registration.id).label('count')
+    ).filter_by(assessment_id=assessment_id
+    ).group_by(Registration.cadre).order_by(db.func.count(Registration.id).desc()).all()
+
+    # Per-day attendance counts
+    day_attendance = []
+    all_regs = Registration.query.filter_by(assessment_id=assessment_id).all()
+    for d in range(1, campaign_days + 1):
+        attended = sum(1 for r in all_regs if r.get_day(d))
+        day_attendance.append({'day': d, 'count': attended, 'total': len(all_regs)})
+
+    # Unique counts
+    unique_districts = db.session.query(db.func.count(db.distinct(Registration.district))).filter_by(
+        assessment_id=assessment_id).scalar() or 0
+    unique_facilities = db.session.query(db.func.count(db.distinct(Registration.facility))).filter_by(
+        assessment_id=assessment_id).scalar() or 0
+
+    # Bank details count for this assessment
+    bank_count = BankDetail.query.filter_by(assessment_id=assessment_id).count()
 
     return render_template('admin_dashboard.html',
         assessment=assessment,
@@ -729,6 +752,11 @@ def admin_dashboard(assessment_id):
         daily_registrations=daily_registrations,
         district_stats=district_stats,
         facility_stats=facility_stats,
+        cadre_stats=cadre_stats,
+        day_attendance=day_attendance,
+        unique_districts=unique_districts,
+        unique_facilities=unique_facilities,
+        bank_count=bank_count,
         campaign_days=campaign_days)
 
 
