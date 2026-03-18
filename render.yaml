@@ -8,7 +8,7 @@ services:
     plan: free
     envVars:
       - key: DATABASE_URL
-        value: postgresql://neondb_owner:npg_DMpsv5t9Fgki@ep-orange-credit-amz29arx-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require
+        sync: false
       - key: SECRET_KEY
         generateValue: true
       - key: PYTHON_VERSION

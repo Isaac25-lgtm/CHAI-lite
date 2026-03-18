@@ -11,9 +11,8 @@ import secrets
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-this-in-production')
 
-# Use Neon PostgreSQL in production, SQLite locally
-DATABASE_URL = os.environ.get('DATABASE_URL',
-    'postgresql://neondb_owner:npg_DMpsv5t9Fgki@ep-orange-credit-amz29arx-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require')
+# Use DATABASE_URL env var in production (Neon/Render), SQLite locally as fallback
+DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///chai_local.db')
 
 # Fix for older postgres:// URIs (Render/Heroku style)
 if DATABASE_URL.startswith('postgres://'):
