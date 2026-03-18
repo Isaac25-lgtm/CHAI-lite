@@ -122,7 +122,8 @@ tbody tr:hover{background:#FEF3C7}
       <td>{{ bd.account_number }}</td>
       <td>{{ bd.branch }}</td>
       <td>{{ bd.submitted_at.strftime('%Y-%m-%d %H:%M') }}</td>
-      <td>
+      <td style="white-space:nowrap">
+       <a href="{{ url_for('edit_bank_detail', assessment_id=assessment.id, bd_id=bd.id) }}" class="btn btn-gold btn-sm" style="text-decoration:none">Edit</a>
        <form method="POST" action="{{ url_for('delete_bank_detail', assessment_id=assessment.id, bd_id=bd.id) }}" style="display:inline" onsubmit="return confirm('Delete this entry?')">
         <button type="submit" class="btn btn-red btn-sm">Delete</button>
        </form>

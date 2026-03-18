@@ -113,12 +113,44 @@ class Registration(db.Model):
     day3 = db.Column(db.Boolean, default=False)
     day4 = db.Column(db.Boolean, default=False)
     day5 = db.Column(db.Boolean, default=False)
+    day6 = db.Column(db.Boolean, default=False)
+    day7 = db.Column(db.Boolean, default=False)
+    day8 = db.Column(db.Boolean, default=False)
+    day9 = db.Column(db.Boolean, default=False)
+    day10 = db.Column(db.Boolean, default=False)
+    day11 = db.Column(db.Boolean, default=False)
+    day12 = db.Column(db.Boolean, default=False)
+    day13 = db.Column(db.Boolean, default=False)
+    day14 = db.Column(db.Boolean, default=False)
+    day15 = db.Column(db.Boolean, default=False)
+    day16 = db.Column(db.Boolean, default=False)
+    day17 = db.Column(db.Boolean, default=False)
+    day18 = db.Column(db.Boolean, default=False)
+    day19 = db.Column(db.Boolean, default=False)
+    day20 = db.Column(db.Boolean, default=False)
+    day21 = db.Column(db.Boolean, default=False)
+    day22 = db.Column(db.Boolean, default=False)
+    day23 = db.Column(db.Boolean, default=False)
+    day24 = db.Column(db.Boolean, default=False)
+    day25 = db.Column(db.Boolean, default=False)
+    day26 = db.Column(db.Boolean, default=False)
+    day27 = db.Column(db.Boolean, default=False)
+    day28 = db.Column(db.Boolean, default=False)
+    day29 = db.Column(db.Boolean, default=False)
+    day30 = db.Column(db.Boolean, default=False)
     mobile_number = db.Column(db.String(15), nullable=False)
     mm_registered_names = db.Column(db.String(200), nullable=False)
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    def get_day(self, n):
+        return getattr(self, f'day{n}', False) or False
+
+    def set_day(self, n, val):
+        if 1 <= n <= 30:
+            setattr(self, f'day{n}', bool(val))
+
     def to_dict(self):
-        return {
+        d = {
             'id': self.id,
             'assessment_id': self.assessment_id,
             'participant_name': self.participant_name,
@@ -126,12 +158,13 @@ class Registration(db.Model):
             'district': self.district,
             'facility': self.facility,
             'registration_date': self.registration_date.strftime('%Y-%m-%d'),
-            'day1': self.day1, 'day2': self.day2, 'day3': self.day3,
-            'day4': self.day4, 'day5': self.day5,
             'mobile_number': self.mobile_number,
             'mm_registered_names': self.mm_registered_names,
             'submitted_at': self.submitted_at.strftime('%Y-%m-%d %H:%M:%S')
         }
+        for i in range(1, 31):
+            d[f'day{i}'] = self.get_day(i)
+        return d
 
 
 with app.app_context():
@@ -304,12 +337,11 @@ def submit_bulk_registration():
                 district=p.get('district'),
                 facility=p.get('facility'),
                 registration_date=reg_date,
-                day1=p.get('day1', False), day2=p.get('day2', False),
-                day3=p.get('day3', False), day4=p.get('day4', False),
-                day5=p.get('day5', False),
                 mobile_number=p.get('mobile_number'),
                 mm_registered_names=p.get('mm_registered_names')
             )
+            for day_num in range(1, 31):
+                registration.set_day(day_num, p.get(f'day{day_num}', False))
             db.session.add(registration)
             registrations.append(registration)
 
@@ -888,6 +920,52 @@ def download_bank_excel(assessment_id):
     return send_file(output,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         as_attachment=True, download_name=filename)
+
+
+# ── Edit routes ────────────────────────────────────────────────────
+
+@app.route('/admin/edit/<int:assessment_id>/<int:reg_id>', methods=['GET', 'POST'])
+@login_required
+def edit_registration(assessment_id, reg_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+    reg = Registration.query.get_or_404(reg_id)
+
+    if request.method == 'POST':
+        reg.participant_name = request.form.get('participant_name', reg.participant_name)
+        reg.cadre = request.form.get('cadre', reg.cadre)
+        reg.district = request.form.get('district', reg.district)
+        reg.facility = request.form.get('facility', reg.facility)
+        reg.mobile_number = request.form.get('mobile_number', reg.mobile_number)
+        reg.mm_registered_names = request.form.get('mm_registered_names', reg.mm_registered_names)
+
+        for day_num in range(1, assessment.campaign_days + 1):
+            reg.set_day(day_num, request.form.get(f'day{day_num}') == 'on')
+
+        db.session.commit()
+        flash('Registration updated.', 'success')
+        return redirect(url_for('admin_dashboard', assessment_id=assessment_id))
+
+    return render_template('edit_registration.html', assessment=assessment, reg=reg)
+
+
+@app.route('/admin/bank/edit/<int:assessment_id>/<int:bd_id>', methods=['GET', 'POST'])
+@login_required
+def edit_bank_detail(assessment_id, bd_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+    bd = BankDetail.query.get_or_404(bd_id)
+
+    if request.method == 'POST':
+        bd.account_name = request.form.get('account_name', bd.account_name)
+        bd.designation = request.form.get('designation', bd.designation)
+        bd.bank_name = request.form.get('bank_name', bd.bank_name)
+        bd.account_number = request.form.get('account_number', bd.account_number)
+        bd.branch = request.form.get('branch', bd.branch)
+
+        db.session.commit()
+        flash('Bank detail updated.', 'success')
+        return redirect(url_for('admin_bank_details', assessment_id=assessment_id))
+
+    return render_template('edit_bank.html', assessment=assessment, bd=bd)
 
 
 # ── API ─────────────────────────────────────────────────────────────

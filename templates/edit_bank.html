@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edit Bank Detail - {{ assessment.name }}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:#1F2937}
+.container{max-width:700px;margin:0 auto;padding:24px 16px}
+.header{background:linear-gradient(135deg,#92400E,#78350F);color:white;padding:24px;border-radius:12px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-family:'Instrument Serif',serif;font-size:22px}
+.header a{color:#FDE68A;font-size:13px;text-decoration:none}
+.card{background:white;padding:28px;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;border:1px solid #E5E7EB}
+.card h2{color:#0A3D3E;font-size:18px;margin-bottom:20px;font-family:'Instrument Serif',serif}
+.fg{margin-bottom:16px}
+.fg label{display:block;margin-bottom:5px;color:#374151;font-weight:600;font-size:13px}
+.fg input,.fg select{width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:14px;font-family:inherit;color:#1F2937}
+.fg input:focus,.fg select:focus{outline:none;border-color:#D4A843}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn-row{display:flex;gap:10px;margin-top:20px}
+.btn{padding:14px 28px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s;text-decoration:none;text-align:center}
+.btn-gold{background:#D4A843;color:white}.btn-gold:hover{background:#C49A3A}
+.btn-gray{background:#E5E7EB;color:#374151}
+@media(max-width:600px){.row2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+ <div class="header">
+  <h1>Edit Bank Detail</h1>
+  <a href="{{ url_for('admin_bank_details', assessment_id=assessment.id) }}">&larr; Back</a>
+ </div>
+
+ <form method="POST">
+  <div class="card">
+   <h2>Bank Account Details</h2>
+   <div class="fg">
+    <label>Bank Account Name</label>
+    <input type="text" name="account_name" value="{{ bd.account_name }}" required>
+   </div>
+   <div class="fg">
+    <label>Designation</label>
+    <input type="text" name="designation" value="{{ bd.designation }}">
+   </div>
+   <div class="fg">
+    <label>Bank Name</label>
+    <select name="bank_name">
+     <option value="">Select bank...</option>
+     {% set bank_list = [
+       'Absa Bank Uganda Limited', 'Bank of Africa Uganda Limited', 'Bank of Baroda Uganda Limited',
+       'Bank of India (Uganda) Limited', 'Cairo Bank Uganda', 'Centenary Bank',
+       'Citibank Uganda Limited', 'DFCU Bank', 'Diamond Trust Bank (DTB) Uganda',
+       'Ecobank Uganda Limited', 'Equity Bank Uganda Limited', 'Exim Bank Uganda Limited',
+       'Housing Finance Bank', 'I&M Bank Uganda', 'KCB Bank Uganda Limited',
+       'NCBA Bank Uganda Limited', 'Pearl Bank Uganda Limited', 'Salaam Bank Uganda',
+       'Stanbic Bank Uganda Limited', 'Standard Chartered Bank Uganda',
+       'Tropical Bank Limited', 'United Bank for Africa (UBA) Uganda'
+     ] %}
+     {% for bank in bank_list %}
+     <option value="{{ bank }}" {% if bd.bank_name == bank %}selected{% endif %}>{{ bank }}</option>
+     {% endfor %}
+     <option value="Other" {% if bd.bank_name not in bank_list and bd.bank_name %}selected{% endif %}>Other</option>
+    </select>
+   </div>
+   <div class="fg" id="otherBankWrap" style="{% if bd.bank_name in bank_list or not bd.bank_name %}display:none{% endif %}">
+    <label>Other Bank Name</label>
+    <input type="text" name="other_bank" id="otherBankInput" value="{% if bd.bank_name not in bank_list %}{{ bd.bank_name }}{% endif %}">
+   </div>
+   <div class="row2">
+    <div class="fg">
+     <label>Account Number</label>
+     <input type="text" name="account_number" value="{{ bd.account_number }}" required>
+    </div>
+    <div class="fg">
+     <label>Bank Branch</label>
+     <input type="text" name="branch" value="{{ bd.branch }}">
+    </div>
+   </div>
+
+   <div class="btn-row">
+    <button type="submit" class="btn btn-gold">Save Changes</button>
+    <a href="{{ url_for('admin_bank_details', assessment_id=assessment.id) }}" class="btn btn-gray">Cancel</a>
+   </div>
+  </div>
+ </form>
+</div>
+<script>
+const bankSel = document.querySelector('select[name="bank_name"]');
+const otherWrap = document.getElementById('otherBankWrap');
+bankSel.addEventListener('change', function(){
+  if(this.value === 'Other'){otherWrap.style.display='block'}
+  else{otherWrap.style.display='none'}
+});
+document.querySelector('form').addEventListener('submit', function(){
+  if(bankSel.value === 'Other'){
+    const otherVal = document.getElementById('otherBankInput').value.trim();
+    if(otherVal){
+      const opt = document.createElement('option');
+      opt.value = otherVal; opt.selected = true;
+      bankSel.appendChild(opt);
+    }
+  }
+});
+</script>
+</body>
+</html>

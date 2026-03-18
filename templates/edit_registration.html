@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edit Registration - {{ assessment.name }}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:#1F2937}
+.container{max-width:700px;margin:0 auto;padding:24px 16px}
+.header{background:linear-gradient(135deg,#0F5B5C,#0A3D3E);color:white;padding:24px;border-radius:12px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-family:'Instrument Serif',serif;font-size:22px}
+.header a{color:#A7F3D0;font-size:13px;text-decoration:none}
+.card{background:white;padding:28px;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;border:1px solid #E5E7EB}
+.card h2{color:#0A3D3E;font-size:18px;margin-bottom:20px;font-family:'Instrument Serif',serif}
+.fg{margin-bottom:16px}
+.fg label{display:block;margin-bottom:5px;color:#374151;font-weight:600;font-size:13px}
+.fg input[type=text],.fg input[type=tel]{width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:14px;font-family:inherit;color:#1F2937}
+.fg input:focus{outline:none;border-color:#0F5B5C;box-shadow:0 0 0 3px rgba(15,91,92,.08)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.days-grid{display:flex;flex-wrap:wrap;gap:12px;padding:14px;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:8px}
+.day-item{display:flex;align-items:center;gap:6px}
+.day-item input[type=checkbox]{width:22px;height:22px;accent-color:#0F5B5C;cursor:pointer}
+.day-item label{cursor:pointer;font-size:14px;font-weight:500;user-select:none}
+.btn-row{display:flex;gap:10px;margin-top:20px}
+.btn{padding:14px 28px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s;text-decoration:none;text-align:center}
+.btn-teal{background:#0F5B5C;color:white}.btn-teal:hover{background:#178182}
+.btn-gray{background:#E5E7EB;color:#374151}
+@media(max-width:600px){.row2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+ <div class="header">
+  <h1>Edit Registration</h1>
+  <a href="{{ url_for('admin_dashboard', assessment_id=assessment.id) }}">&larr; Back</a>
+ </div>
+
+ <form method="POST">
+  <div class="card">
+   <h2>Participant Details</h2>
+   <div class="fg">
+    <label>Participant Name</label>
+    <input type="text" name="participant_name" value="{{ reg.participant_name }}" required>
+   </div>
+   <div class="row2">
+    <div class="fg">
+     <label>Cadre</label>
+     <input type="text" name="cadre" value="{{ reg.cadre }}" required>
+    </div>
+    <div class="fg">
+     <label>District</label>
+     <input type="text" name="district" value="{{ reg.district }}" required>
+    </div>
+   </div>
+   <div class="fg">
+    <label>Facility</label>
+    <input type="text" name="facility" value="{{ reg.facility }}" required>
+   </div>
+   <div class="row2">
+    <div class="fg">
+     <label>Mobile Number</label>
+     <input type="tel" name="mobile_number" value="{{ reg.mobile_number }}" required>
+    </div>
+    <div class="fg">
+     <label>MoMo Registered Names</label>
+     <input type="text" name="mm_registered_names" value="{{ reg.mm_registered_names }}" required>
+    </div>
+   </div>
+
+   <div class="fg">
+    <label>Campaign Day Attendance</label>
+    <div class="days-grid">
+     {% for d in range(1, assessment.campaign_days + 1) %}
+     <div class="day-item">
+      <input type="checkbox" name="day{{ d }}" id="day{{ d }}" {% if reg.get_day(d) %}checked{% endif %}>
+      <label for="day{{ d }}">{{ ['','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th','13th','14th','15th','16th','17th','18th','19th','20th','21st','22nd','23rd','24th','25th','26th','27th','28th','29th','30th'][d] }}</label>
+     </div>
+     {% endfor %}
+    </div>
+   </div>
+
+   <div class="btn-row">
+    <button type="submit" class="btn btn-teal">Save Changes</button>
+    <a href="{{ url_for('admin_dashboard', assessment_id=assessment.id) }}" class="btn btn-gray">Cancel</a>
+   </div>
+  </div>
+ </form>
+</div>
+</body>
+</html>
