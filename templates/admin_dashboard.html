@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CHAI Uganda - {{ assessment.name }}</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
@@ -51,6 +52,10 @@ tbody tr:hover{background:#E8F4F4}
 .chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:20px}
 .chart-card{background:white;padding:20px;border-radius:12px;border:1px solid #E5E7EB}
 .chart-card h3{font-size:14px;color:#0A3D3E;margin-bottom:12px;font-family:'Instrument Serif',serif}
+.chart-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.chart-top h3{margin-bottom:0}
+.dl-chart{background:#E5E7EB;border:none;padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;color:#374151}
+.dl-chart:hover{background:#D1D5DB}
 .chart-full{grid-column:1/-1}
 .flash{padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px}
 .flash-error{background:#FEE2E2;border:1px solid #FECACA;color:#991B1B}
@@ -179,23 +184,23 @@ tbody tr:hover{background:#E8F4F4}
  {% if total_count > 0 %}
  <div class="chart-grid">
   <div class="chart-card chart-full">
-   <h3>Enrollment Trend</h3>
+   <div class="chart-top"><h3>Enrollment Trend</h3><button class="dl-chart" onclick="dlChart('trendChart','Enrollment_Trend')">&#128247; Save</button></div>
    <canvas id="trendChart" height="80"></canvas>
   </div>
   <div class="chart-card">
-   <h3>Participants by District</h3>
+   <div class="chart-top"><h3>Participants by District</h3><button class="dl-chart" onclick="dlChart('districtChart','District_Distribution')">&#128247; Save</button></div>
    <canvas id="districtChart"></canvas>
   </div>
   <div class="chart-card">
-   <h3>Participants by Facility</h3>
+   <div class="chart-top"><h3>Participants by Facility</h3><button class="dl-chart" onclick="dlChart('facilityChart','Facility_Distribution')">&#128247; Save</button></div>
    <canvas id="facilityChart"></canvas>
   </div>
   <div class="chart-card">
-   <h3>Cadre Breakdown</h3>
+   <div class="chart-top"><h3>Cadre Breakdown</h3><button class="dl-chart" onclick="dlChart('cadreChart','Cadre_Breakdown')">&#128247; Save</button></div>
    <canvas id="cadreChart"></canvas>
   </div>
   <div class="chart-card">
-   <h3>Attendance per Campaign Day</h3>
+   <div class="chart-top"><h3>Attendance per Campaign Day</h3><button class="dl-chart" onclick="dlChart('dayChart','Day_Attendance')">&#128247; Save</button></div>
    <canvas id="dayChart"></canvas>
   </div>
  </div>
@@ -205,7 +210,16 @@ tbody tr:hover{background:#E8F4F4}
 
 {% if total_count > 0 %}
 <script>
+Chart.register(ChartDataLabels);
 const colors = ['#0F5B5C','#D4A843','#7C3AED','#2563EB','#E11D48','#059669','#F59E0B','#6366F1','#EC4899','#14B8A6','#8B5CF6','#EF4444','#06B6D4','#84CC16','#F97316'];
+
+function dlChart(id, name){
+ const canvas = document.getElementById(id);
+ const link = document.createElement('a');
+ link.download = 'CHAI_'+name+'_{{ assessment.name|replace(" ","_") }}.png';
+ link.href = canvas.toDataURL('image/png', 1.0);
+ link.click();
+}
 
 // Enrollment Trend (Line/Area)
 new Chart(document.getElementById('trendChart').getContext('2d'), {
@@ -219,7 +233,7 @@ new Chart(document.getElementById('trendChart').getContext('2d'), {
    pointBackgroundColor:'#0F5B5C',pointRadius:5,pointHoverRadius:7,borderWidth:2.5
   }]
  },
- options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{title:function(t){return 'Date: '+t[0].label},label:function(t){return t.parsed.y+' participant'+(t.parsed.y!==1?'s':'')}}}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}},x:{ticks:{maxRotation:45}}}}
+ options:{responsive:true,plugins:{legend:{display:false},datalabels:{anchor:'end',align:'top',color:'#0F5B5C',font:{weight:'bold',size:11},formatter:function(v){return v>0?v:''}},tooltip:{callbacks:{title:function(t){return 'Date: '+t[0].label},label:function(t){return t.parsed.y+' participant'+(t.parsed.y!==1?'s':'')}}}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}},x:{ticks:{maxRotation:45}}}}
 });
 
 // District Distribution (Doughnut)
@@ -229,7 +243,7 @@ new Chart(document.getElementById('districtChart').getContext('2d'), {
   labels:[{% for ds in district_stats %}'{{ ds.district }}'{% if not loop.last %},{% endif %}{% endfor %}],
   datasets:[{data:[{% for ds in district_stats %}{{ ds.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:colors.slice(0,{{ district_stats|length }}),borderWidth:2,borderColor:'#fff'}]
  },
- options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10}},tooltip:{callbacks:{label:function(t){return t.label+': '+t.parsed+' participant'+(t.parsed!==1?'s':'')+' ('+Math.round(t.parsed/{{ total_count }}*100)+'%)'}}}}}
+ options:{responsive:true,plugins:{datalabels:{color:'#fff',font:{weight:'bold',size:11},formatter:function(v,ctx){var total={{ total_count }};var pct=Math.round(v/total*100);return pct>=5?v+' ('+pct+'%)':''}},legend:{position:'bottom',labels:{font:{size:11},padding:10}},tooltip:{callbacks:{label:function(t){return t.label+': '+t.parsed+' participant'+(t.parsed!==1?'s':'')+' ('+Math.round(t.parsed/{{ total_count }}*100)+'%)'}}}}}
 });
 
 // Facility Distribution (Horizontal Bar)
@@ -239,7 +253,7 @@ new Chart(document.getElementById('facilityChart').getContext('2d'), {
   labels:[{% for fs in facility_stats %}'{{ fs.facility }}'{% if not loop.last %},{% endif %}{% endfor %}],
   datasets:[{label:'Participants',data:[{% for fs in facility_stats %}{{ fs.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:colors.slice(0,{{ facility_stats|length }}),borderRadius:6}]
  },
- options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}
+ options:{indexAxis:'y',responsive:true,plugins:{datalabels:{anchor:'end',align:'end',color:'#374151',font:{weight:'bold',size:11}},legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}
 });
 
 // Cadre Breakdown (Pie)
@@ -249,7 +263,7 @@ new Chart(document.getElementById('cadreChart').getContext('2d'), {
   labels:[{% for cs in cadre_stats %}'{{ cs.cadre }}'{% if not loop.last %},{% endif %}{% endfor %}],
   datasets:[{data:[{% for cs in cadre_stats %}{{ cs.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:colors.slice(0,{{ cadre_stats|length }}),borderWidth:2,borderColor:'#fff'}]
  },
- options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10}}}}
+ options:{responsive:true,plugins:{datalabels:{color:'#fff',font:{weight:'bold',size:11},formatter:function(v,ctx){var total={{ total_count }};var pct=Math.round(v/total*100);return pct>=5?v+' ('+pct+'%)':''}},legend:{position:'bottom',labels:{font:{size:11},padding:10}}}}
 });
 
 // Day Attendance (Vertical Bar)
@@ -262,7 +276,7 @@ new Chart(document.getElementById('dayChart').getContext('2d'), {
    {label:'Absent',data:[{% for da in day_attendance %}{{ da.total - da.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:'#E5E7EB',borderRadius:6}
   ]
  },
- options:{responsive:true,plugins:{legend:{position:'top',labels:{font:{size:11}}},tooltip:{callbacks:{label:function(t){var total={{ total_count }};var pct=total>0?Math.round(t.parsed.y/total*100):0;return t.dataset.label+': '+t.parsed.y+' ('+pct+'%)'}}}},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{stepSize:1}}}}
+ options:{responsive:true,plugins:{datalabels:{color:function(ctx){return ctx.datasetIndex===0?'#fff':'#6B7280'},font:{weight:'bold',size:11},formatter:function(v){return v>0?v:''}},legend:{position:'top',labels:{font:{size:11}}},tooltip:{callbacks:{label:function(t){var total={{ total_count }};var pct=total>0?Math.round(t.parsed.y/total*100):0;return t.dataset.label+': '+t.parsed.y+' ('+pct+'%)'}}}},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{stepSize:1}}}}
 });
 </script>
 {% endif %}

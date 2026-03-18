@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CHAI Uganda - Bank Details - {{ assessment.name }}</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
@@ -49,6 +50,10 @@ tbody tr:hover{background:#FEF3C7}
 .chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:20px}
 .chart-card{background:white;padding:20px;border-radius:12px;border:1px solid #E5E7EB}
 .chart-card h3{font-size:14px;color:#0A3D3E;margin-bottom:12px;font-family:'Instrument Serif',serif}
+.chart-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.chart-top h3{margin-bottom:0}
+.dl-chart{background:#E5E7EB;border:none;padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;color:#374151}
+.dl-chart:hover{background:#D1D5DB}
 .chart-full{grid-column:1/-1}
 @media(max-width:600px){.filter-row{flex-direction:column}.action-row{flex-direction:column}.chart-grid{grid-template-columns:1fr}}
 </style>
@@ -148,22 +153,22 @@ tbody tr:hover{background:#FEF3C7}
  {% if total_count > 0 %}
  <div class="chart-grid">
   <div class="chart-card chart-full">
-   <h3>Submission Trend</h3>
+   <div class="chart-top"><h3>Submission Trend</h3><button class="dl-chart" onclick="dlChart('bankTrendChart','Bank_Submission_Trend')">&#128247; Save</button></div>
    <canvas id="bankTrendChart" height="80"></canvas>
   </div>
   <div class="chart-card">
-   <h3>Members by Bank</h3>
+   <div class="chart-top"><h3>Members by Bank</h3><button class="dl-chart" onclick="dlChart('bankDistChart','Bank_Distribution')">&#128247; Save</button></div>
    <canvas id="bankDistChart"></canvas>
   </div>
   {% if designation_stats %}
   <div class="chart-card">
-   <h3>Designation Breakdown</h3>
+   <div class="chart-top"><h3>Designation Breakdown</h3><button class="dl-chart" onclick="dlChart('desigChart','Designation_Breakdown')">&#128247; Save</button></div>
    <canvas id="desigChart"></canvas>
   </div>
   {% endif %}
   {% if branch_stats %}
   <div class="chart-card">
-   <h3>Members by Branch</h3>
+   <div class="chart-top"><h3>Members by Branch</h3><button class="dl-chart" onclick="dlChart('branchChart','Branch_Distribution')">&#128247; Save</button></div>
    <canvas id="branchChart"></canvas>
   </div>
   {% endif %}
@@ -174,7 +179,16 @@ tbody tr:hover{background:#FEF3C7}
 
 {% if total_count > 0 %}
 <script>
+Chart.register(ChartDataLabels);
 const colors = ['#92400E','#D4A843','#0F5B5C','#7C3AED','#2563EB','#E11D48','#059669','#F59E0B','#6366F1','#EC4899','#14B8A6','#8B5CF6','#EF4444','#06B6D4','#84CC16'];
+
+function dlChart(id, name){
+ const canvas = document.getElementById(id);
+ const link = document.createElement('a');
+ link.download = 'CHAI_'+name+'_{{ assessment.name|replace(" ","_") }}.png';
+ link.href = canvas.toDataURL('image/png', 1.0);
+ link.click();
+}
 
 // Submission Trend (Line)
 new Chart(document.getElementById('bankTrendChart').getContext('2d'), {
@@ -188,7 +202,7 @@ new Chart(document.getElementById('bankTrendChart').getContext('2d'), {
    pointBackgroundColor:'#92400E',pointRadius:5,pointHoverRadius:7,borderWidth:2.5
   }]
  },
- options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}},x:{ticks:{maxRotation:45}}}}
+ options:{responsive:true,plugins:{datalabels:{anchor:'end',align:'top',color:'#92400E',font:{weight:'bold',size:11},formatter:function(v){return v>0?v:''}},legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}},x:{ticks:{maxRotation:45}}}}
 });
 
 // Bank Distribution (Doughnut)
@@ -198,7 +212,7 @@ new Chart(document.getElementById('bankDistChart').getContext('2d'), {
   labels:[{% for bd in bank_distribution %}'{{ bd.bank_name }}'{% if not loop.last %},{% endif %}{% endfor %}],
   datasets:[{data:[{% for bd in bank_distribution %}{{ bd.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:colors.slice(0,{{ bank_distribution|length }}),borderWidth:2,borderColor:'#fff'}]
  },
- options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:8}}}}
+ options:{responsive:true,plugins:{datalabels:{color:'#fff',font:{weight:'bold',size:11},formatter:function(v,ctx){var total={{ total_count }};var pct=Math.round(v/total*100);return pct>=5?v+' ('+pct+'%)':''}},legend:{position:'bottom',labels:{font:{size:10},padding:8}}}}
 });
 
 {% if designation_stats %}
@@ -209,7 +223,7 @@ new Chart(document.getElementById('desigChart').getContext('2d'), {
   labels:[{% for ds in designation_stats %}'{{ ds.designation }}'{% if not loop.last %},{% endif %}{% endfor %}],
   datasets:[{data:[{% for ds in designation_stats %}{{ ds.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:colors.slice(0,{{ designation_stats|length }}),borderWidth:2,borderColor:'#fff'}]
  },
- options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:8}}}}
+ options:{responsive:true,plugins:{datalabels:{color:'#fff',font:{weight:'bold',size:11},formatter:function(v,ctx){var total={{ total_count }};var pct=Math.round(v/total*100);return pct>=5?v+' ('+pct+'%)':''}},legend:{position:'bottom',labels:{font:{size:10},padding:8}}}}
 });
 {% endif %}
 
@@ -221,7 +235,7 @@ new Chart(document.getElementById('branchChart').getContext('2d'), {
   labels:[{% for bs in branch_stats %}'{{ bs.branch }}'{% if not loop.last %},{% endif %}{% endfor %}],
   datasets:[{label:'Members',data:[{% for bs in branch_stats %}{{ bs.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:colors.slice(0,{{ branch_stats|length }}),borderRadius:6}]
  },
- options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}
+ options:{indexAxis:'y',responsive:true,plugins:{datalabels:{anchor:'end',align:'end',color:'#374151',font:{weight:'bold',size:11}},legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}
 });
 {% endif %}
 </script>
