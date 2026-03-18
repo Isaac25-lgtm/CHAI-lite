@@ -725,11 +725,14 @@ def admin_dashboard(assessment_id):
     ).group_by(Registration.cadre).order_by(db.func.count(Registration.id).desc()).all()
 
     # Per-day attendance counts
+    ordinals = ['','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th',
+                '11th','12th','13th','14th','15th','16th','17th','18th','19th','20th',
+                '21st','22nd','23rd','24th','25th','26th','27th','28th','29th','30th']
     day_attendance = []
     all_regs = Registration.query.filter_by(assessment_id=assessment_id).all()
     for d in range(1, campaign_days + 1):
         attended = sum(1 for r in all_regs if r.get_day(d))
-        day_attendance.append({'day': d, 'count': attended, 'total': len(all_regs)})
+        day_attendance.append({'day': d, 'label': ordinals[d], 'count': attended, 'total': len(all_regs)})
 
     # Unique counts
     unique_districts = db.session.query(db.func.count(db.distinct(Registration.district))).filter_by(
@@ -900,11 +903,43 @@ def admin_bank_details(assessment_id):
     banks = [b[0] for b in db.session.query(BankDetail.bank_name).filter_by(
         assessment_id=assessment_id).distinct().order_by(BankDetail.bank_name).all()]
 
+    # Bank analytics
+    bank_distribution = db.session.query(
+        BankDetail.bank_name, db.func.count(BankDetail.id).label('count')
+    ).filter_by(assessment_id=assessment_id
+    ).group_by(BankDetail.bank_name).order_by(db.func.count(BankDetail.id).desc()).all()
+
+    designation_stats = db.session.query(
+        BankDetail.designation, db.func.count(BankDetail.id).label('count')
+    ).filter_by(assessment_id=assessment_id
+    ).filter(BankDetail.designation != ''
+    ).group_by(BankDetail.designation).order_by(db.func.count(BankDetail.id).desc()).all()
+
+    branch_stats = db.session.query(
+        BankDetail.branch, db.func.count(BankDetail.id).label('count')
+    ).filter_by(assessment_id=assessment_id
+    ).filter(BankDetail.branch != ''
+    ).group_by(BankDetail.branch).order_by(db.func.count(BankDetail.id).desc()).all()
+
+    daily_submissions = db.session.query(
+        db.func.date(BankDetail.submitted_at).label('date'),
+        db.func.count(BankDetail.id).label('count')
+    ).filter(BankDetail.assessment_id == assessment_id
+    ).group_by(db.func.date(BankDetail.submitted_at)).order_by('date').all()
+
+    unique_branches = db.session.query(db.func.count(db.distinct(BankDetail.branch))).filter_by(
+        assessment_id=assessment_id).filter(BankDetail.branch != '').scalar() or 0
+
     return render_template('admin_bank.html',
         assessment=assessment, bank_details=bank_details,
         total_count=total_count, filtered_count=len(bank_details),
         search=search, banks=banks, selected_bank=bank_filter,
-        date_from=date_from, date_to=date_to)
+        date_from=date_from, date_to=date_to,
+        bank_distribution=bank_distribution,
+        designation_stats=designation_stats,
+        branch_stats=branch_stats,
+        daily_submissions=daily_submissions,
+        unique_branches=unique_branches)
 
 
 @app.route('/admin/bank/delete/<int:assessment_id>/<int:bd_id>', methods=['POST'])

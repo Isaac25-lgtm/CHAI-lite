@@ -253,17 +253,16 @@ new Chart(document.getElementById('cadreChart').getContext('2d'), {
 });
 
 // Day Attendance (Vertical Bar)
-{% set ordinals_js = "['','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th','13th','14th','15th','16th','17th','18th','19th','20th','21st','22nd','23rd','24th','25th','26th','27th','28th','29th','30th']" %}
 new Chart(document.getElementById('dayChart').getContext('2d'), {
  type:'bar',
  data:{
-  labels:[{% for da in day_attendance %}{{ ordinals_js }}[{{ da.day }}]{% if not loop.last %},{% endif %}{% endfor %}],
+  labels:[{% for da in day_attendance %}'{{ da.label }}'{% if not loop.last %},{% endif %}{% endfor %}],
   datasets:[
    {label:'Attended',data:[{% for da in day_attendance %}{{ da.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:'#059669',borderRadius:6},
    {label:'Absent',data:[{% for da in day_attendance %}{{ da.total - da.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:'#E5E7EB',borderRadius:6}
   ]
  },
- options:{responsive:true,plugins:{legend:{position:'top',labels:{font:{size:11}}},tooltip:{callbacks:{label:function(t){var total={{ total_count }};var pct=Math.round(t.parsed.y/total*100);return t.dataset.label+': '+t.parsed.y+' ('+pct+'%)'}}}},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{stepSize:1}}}}
+ options:{responsive:true,plugins:{legend:{position:'top',labels:{font:{size:11}}},tooltip:{callbacks:{label:function(t){var total={{ total_count }};var pct=total>0?Math.round(t.parsed.y/total*100):0;return t.dataset.label+': '+t.parsed.y+' ('+pct+'%)'}}}},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{stepSize:1}}}}
 });
 </script>
 {% endif %}

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CHAI Uganda - Bank Details - {{ assessment.name }}</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
@@ -45,7 +46,11 @@ tbody tr:hover{background:#FEF3C7}
 .flash-success{background:#D1FAE5;border:1px solid #A7F3D0;color:#065F46}
 .flash-info{background:#E0F2FE;border:1px solid #BAE6FD;color:#075985}
 .empty{text-align:center;padding:40px;color:#9CA3AF}
-@media(max-width:600px){.filter-row{flex-direction:column}.action-row{flex-direction:column}}
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:20px}
+.chart-card{background:white;padding:20px;border-radius:12px;border:1px solid #E5E7EB}
+.chart-card h3{font-size:14px;color:#0A3D3E;margin-bottom:12px;font-family:'Instrument Serif',serif}
+.chart-full{grid-column:1/-1}
+@media(max-width:600px){.filter-row{flex-direction:column}.action-row{flex-direction:column}.chart-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -73,8 +78,9 @@ tbody tr:hover{background:#FEF3C7}
 
  <div class="stats-row">
   <div class="stat-card"><div class="num">{{ total_count }}</div><div class="label">Total Team Members</div></div>
-  <div class="stat-card"><div class="num">{{ filtered_count }}</div><div class="label">Filtered Results</div></div>
-  <div class="stat-card"><div class="num">{{ banks|length }}</div><div class="label">Banks Used</div></div>
+  <div class="stat-card"><div class="num" style="color:#2563EB">{{ filtered_count }}</div><div class="label">Filtered Results</div></div>
+  <div class="stat-card"><div class="num" style="color:#7C3AED">{{ banks|length }}</div><div class="label">Banks Used</div></div>
+  <div class="stat-card"><div class="num" style="color:#059669">{{ unique_branches }}</div><div class="label">Branches</div></div>
  </div>
 
  <div class="card">
@@ -137,6 +143,88 @@ tbody tr:hover{background:#FEF3C7}
   <div class="empty">No bank details found{% if search or selected_bank or date_from or date_to %} matching your filters{% endif %}</div>
   {% endif %}
  </div>
+
+ <!-- Bank Analytics -->
+ {% if total_count > 0 %}
+ <div class="chart-grid">
+  <div class="chart-card chart-full">
+   <h3>Submission Trend</h3>
+   <canvas id="bankTrendChart" height="80"></canvas>
+  </div>
+  <div class="chart-card">
+   <h3>Members by Bank</h3>
+   <canvas id="bankDistChart"></canvas>
+  </div>
+  {% if designation_stats %}
+  <div class="chart-card">
+   <h3>Designation Breakdown</h3>
+   <canvas id="desigChart"></canvas>
+  </div>
+  {% endif %}
+  {% if branch_stats %}
+  <div class="chart-card">
+   <h3>Members by Branch</h3>
+   <canvas id="branchChart"></canvas>
+  </div>
+  {% endif %}
+ </div>
+ {% endif %}
+
 </div>
+
+{% if total_count > 0 %}
+<script>
+const colors = ['#92400E','#D4A843','#0F5B5C','#7C3AED','#2563EB','#E11D48','#059669','#F59E0B','#6366F1','#EC4899','#14B8A6','#8B5CF6','#EF4444','#06B6D4','#84CC16'];
+
+// Submission Trend (Line)
+new Chart(document.getElementById('bankTrendChart').getContext('2d'), {
+ type:'line',
+ data:{
+  labels:[{% for ds in daily_submissions %}'{{ ds.date }}'{% if not loop.last %},{% endif %}{% endfor %}],
+  datasets:[{
+   label:'Submissions',
+   data:[{% for ds in daily_submissions %}{{ ds.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+   borderColor:'#92400E',backgroundColor:'rgba(146,64,14,.12)',fill:true,tension:0.3,
+   pointBackgroundColor:'#92400E',pointRadius:5,pointHoverRadius:7,borderWidth:2.5
+  }]
+ },
+ options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}},x:{ticks:{maxRotation:45}}}}
+});
+
+// Bank Distribution (Doughnut)
+new Chart(document.getElementById('bankDistChart').getContext('2d'), {
+ type:'doughnut',
+ data:{
+  labels:[{% for bd in bank_distribution %}'{{ bd.bank_name }}'{% if not loop.last %},{% endif %}{% endfor %}],
+  datasets:[{data:[{% for bd in bank_distribution %}{{ bd.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:colors.slice(0,{{ bank_distribution|length }}),borderWidth:2,borderColor:'#fff'}]
+ },
+ options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:8}}}}
+});
+
+{% if designation_stats %}
+// Designation Breakdown (Pie)
+new Chart(document.getElementById('desigChart').getContext('2d'), {
+ type:'pie',
+ data:{
+  labels:[{% for ds in designation_stats %}'{{ ds.designation }}'{% if not loop.last %},{% endif %}{% endfor %}],
+  datasets:[{data:[{% for ds in designation_stats %}{{ ds.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:colors.slice(0,{{ designation_stats|length }}),borderWidth:2,borderColor:'#fff'}]
+ },
+ options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:8}}}}
+});
+{% endif %}
+
+{% if branch_stats %}
+// Branch Distribution (Horizontal Bar)
+new Chart(document.getElementById('branchChart').getContext('2d'), {
+ type:'bar',
+ data:{
+  labels:[{% for bs in branch_stats %}'{{ bs.branch }}'{% if not loop.last %},{% endif %}{% endfor %}],
+  datasets:[{label:'Members',data:[{% for bs in branch_stats %}{{ bs.count }}{% if not loop.last %},{% endif %}{% endfor %}],backgroundColor:colors.slice(0,{{ branch_stats|length }}),borderRadius:6}]
+ },
+ options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}
+});
+{% endif %}
+</script>
+{% endif %}
 </body>
 </html>
