@@ -14,11 +14,22 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:
 .header .sub{font-size:12px;opacity:.7}
 .header-links{display:flex;gap:16px;align-items:center}
 .header-links a{color:#FDE68A;font-size:13px;text-decoration:none;font-weight:500}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:white;padding:20px;border-radius:12px;border:1px solid #E5E7EB;text-align:center}
+.stat-card .num{font-size:32px;font-weight:700;color:#92400E}
+.stat-card .label{font-size:12px;color:#6B7280;margin-top:4px}
 .card{background:white;padding:24px;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;border:1px solid #E5E7EB}
 .card h2{color:#0A3D3E;font-size:18px;margin-bottom:16px;font-family:'Instrument Serif',serif}
+.filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px}
+.filter-row .fg{flex:1;min-width:140px}
+.fg{margin-bottom:0}
+.fg label{display:block;margin-bottom:4px;color:#374151;font-weight:600;font-size:12px}
+.fg input,.fg select{width:100%;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:14px;font-family:inherit;color:#1F2937}
+.fg input:focus,.fg select:focus{outline:none;border-color:#D4A843}
 .btn{padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
 .btn:active{transform:scale(.98)}
 .btn-gold{background:#D4A843;color:white}.btn-gold:hover{background:#C49A3A}
+.btn-gray{background:#6B7280;color:white}
 .btn-red{background:#DC2626;color:white}
 .btn-sm{padding:6px 12px;font-size:12px;border-radius:6px}
 .action-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
@@ -34,9 +45,7 @@ tbody tr:hover{background:#FEF3C7}
 .flash-success{background:#D1FAE5;border:1px solid #A7F3D0;color:#065F46}
 .flash-info{background:#E0F2FE;border:1px solid #BAE6FD;color:#075985}
 .empty{text-align:center;padding:40px;color:#9CA3AF}
-.stat-card{background:white;padding:20px;border-radius:12px;border:1px solid #E5E7EB;text-align:center;margin-bottom:20px;max-width:200px}
-.stat-card .num{font-size:32px;font-weight:700;color:#92400E}
-.stat-card .label{font-size:12px;color:#6B7280;margin-top:4px}
+@media(max-width:600px){.filter-row{flex-direction:column}.action-row{flex-direction:column}}
 </style>
 </head>
 <body>
@@ -62,22 +71,41 @@ tbody tr:hover{background:#FEF3C7}
  {% endif %}
  {% endwith %}
 
- <div class="stat-card">
-  <div class="num">{{ bank_details|length }}</div>
-  <div class="label">Team Members</div>
+ <div class="stats-row">
+  <div class="stat-card"><div class="num">{{ total_count }}</div><div class="label">Total Team Members</div></div>
+  <div class="stat-card"><div class="num">{{ filtered_count }}</div><div class="label">Filtered Results</div></div>
+  <div class="stat-card"><div class="num">{{ banks|length }}</div><div class="label">Banks Used</div></div>
+ </div>
+
+ <div class="card">
+  <h2>Filters</h2>
+  <form method="GET">
+   <div class="filter-row">
+    <div class="fg"><label>Search</label><input type="text" name="search" value="{{ search }}" placeholder="Name, account, designation..."></div>
+    <div class="fg"><label>Bank</label>
+     <select name="bank"><option value="">All Banks</option>
+      {% for b in banks %}<option value="{{ b }}" {% if selected_bank == b %}selected{% endif %}>{{ b }}</option>{% endfor %}
+     </select>
+    </div>
+    <div class="fg"><label>Date From</label><input type="date" name="date_from" value="{{ date_from }}"></div>
+    <div class="fg"><label>Date To</label><input type="date" name="date_to" value="{{ date_to }}"></div>
+    <div><button type="submit" class="btn btn-gold">Filter</button></div>
+    <div><a href="{{ url_for('admin_bank_details', assessment_id=assessment.id) }}" class="btn btn-gray">Reset</a></div>
+   </div>
+  </form>
  </div>
 
  <div class="action-row">
   {% if bank_details %}
-  <a href="{{ url_for('download_bank_excel', assessment_id=assessment.id) }}" class="btn btn-gold">&#128229; Download Payment Excel</a>
-  <form method="POST" action="{{ url_for('clear_bank_details', assessment_id=assessment.id) }}" style="display:inline" onsubmit="return confirm('Delete ALL bank details? This cannot be undone!')">
+  <a href="{{ url_for('download_bank_excel', assessment_id=assessment.id, bank=selected_bank, date_from=date_from, date_to=date_to) }}" class="btn btn-gold">&#128229; Download Payment Excel</a>
+  <form method="POST" action="{{ url_for('clear_bank_details', assessment_id=assessment.id) }}" style="display:inline" onsubmit="return confirm('Delete ALL {{ total_count }} bank details? This cannot be undone!')">
    <button type="submit" class="btn btn-red">&#128465; Clear All</button>
   </form>
   {% endif %}
  </div>
 
  <div class="card">
-  <h2>Payment Details ({{ bank_details|length }})</h2>
+  <h2>Payment Details ({{ filtered_count }})</h2>
   {% if bank_details %}
   <div class="tbl-wrap">
    <table>
@@ -105,7 +133,7 @@ tbody tr:hover{background:#FEF3C7}
    </table>
   </div>
   {% else %}
-  <div class="empty">No bank details submitted yet</div>
+  <div class="empty">No bank details found{% if search or selected_bank or date_from or date_to %} matching your filters{% endif %}</div>
   {% endif %}
  </div>
 </div>

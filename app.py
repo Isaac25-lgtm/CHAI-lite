@@ -777,8 +777,44 @@ def clear_all(assessment_id):
 @login_required
 def admin_bank_details(assessment_id):
     assessment = Assessment.query.get_or_404(assessment_id)
-    bank_details = BankDetail.query.filter_by(assessment_id=assessment_id).order_by(BankDetail.submitted_at.desc()).all()
-    return render_template('admin_bank.html', assessment=assessment, bank_details=bank_details)
+
+    search = request.args.get('search', '')
+    bank_filter = request.args.get('bank', '')
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+
+    query = BankDetail.query.filter_by(assessment_id=assessment_id)
+    if search:
+        query = query.filter(db.or_(
+            BankDetail.account_name.ilike(f'%{search}%'),
+            BankDetail.account_number.ilike(f'%{search}%'),
+            BankDetail.designation.ilike(f'%{search}%'),
+            BankDetail.branch.ilike(f'%{search}%')
+        ))
+    if bank_filter:
+        query = query.filter(BankDetail.bank_name == bank_filter)
+    if date_from:
+        try:
+            query = query.filter(BankDetail.submitted_at >= datetime.strptime(date_from, '%Y-%m-%d'))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            query = query.filter(BankDetail.submitted_at <= datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1))
+        except ValueError:
+            pass
+
+    bank_details = query.order_by(BankDetail.submitted_at.desc()).all()
+
+    total_count = BankDetail.query.filter_by(assessment_id=assessment_id).count()
+    banks = [b[0] for b in db.session.query(BankDetail.bank_name).filter_by(
+        assessment_id=assessment_id).distinct().order_by(BankDetail.bank_name).all()]
+
+    return render_template('admin_bank.html',
+        assessment=assessment, bank_details=bank_details,
+        total_count=total_count, filtered_count=len(bank_details),
+        search=search, banks=banks, selected_bank=bank_filter,
+        date_from=date_from, date_to=date_to)
 
 
 @app.route('/admin/bank/delete/<int:assessment_id>/<int:bd_id>', methods=['POST'])
@@ -804,7 +840,26 @@ def clear_bank_details(assessment_id):
 @login_required
 def download_bank_excel(assessment_id):
     assessment = Assessment.query.get_or_404(assessment_id)
-    bank_details = BankDetail.query.filter_by(assessment_id=assessment_id).order_by(BankDetail.submitted_at.desc()).all()
+
+    bank_filter = request.args.get('bank', '')
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+
+    query = BankDetail.query.filter_by(assessment_id=assessment_id)
+    if bank_filter:
+        query = query.filter(BankDetail.bank_name == bank_filter)
+    if date_from:
+        try:
+            query = query.filter(BankDetail.submitted_at >= datetime.strptime(date_from, '%Y-%m-%d'))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            query = query.filter(BankDetail.submitted_at <= datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1))
+        except ValueError:
+            pass
+
+    bank_details = query.order_by(BankDetail.submitted_at.desc()).all()
     wb = build_bank_excel(bank_details)
     output = io.BytesIO()
     wb.save(output)
