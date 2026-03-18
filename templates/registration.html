@@ -116,6 +116,7 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
   <div class="err" id="fPhoneErr">Enter 9 digits starting with 7</div>
  </div>
  <div class="fg"><label>Names Registered on Mobile Money (First &amp; Last Names) <span class="req">*</span></label><input type="text" id="fMomoName" placeholder="First and last name as on MoMo"></div>
+ <div class="fg"><label>Registration Date <span class="req">*</span></label><input type="date" id="fRegDate" {% if start_date %}min="{{ start_date }}"{% endif %} {% if end_date %}max="{{ end_date }}"{% endif %}></div>
  <button class="btn btn-teal" onclick="addFieldP()">&#10133; Add Participant</button>
 </div>
 
@@ -156,7 +157,7 @@ let sentList = JSON.parse(localStorage.getItem(SK + '_sent') || '[]');
 
 function save(){localStorage.setItem(SK, JSON.stringify(participants))}
 function saveSent(){localStorage.setItem(SK + '_sent', JSON.stringify(sentList))}
-function ord(n){const s=['','1st','2nd','3rd','4th','5th'];return s[n]||n+'th'}
+function ord(n){const s=['','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th','13th','14th','15th','16th','17th','18th','19th','20th','21st','22nd','23rd','24th','25th','26th','27th','28th','29th','30th'];return s[n]||n+'th'}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
 function showAlert(msg,type){const el=document.getElementById('fAlert');el.className='alert alert-'+type;el.innerHTML=msg;el.style.display='block';setTimeout(()=>el.style.display='none',5000)}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
@@ -180,9 +181,9 @@ function updDayPreview(){
 }
 function buildTableHeaders(){
   const tr=document.getElementById('fTheadRow');
-  let h='<th>No.</th><th>Name</th><th>Cadre</th><th>Facility</th><th>District</th><th>Phone</th><th>MoMo Names</th>';
-  for(let i=1;i<=CAMPAIGN_DAYS;i++) h+='<th>'+ord(i)+'</th>';
-  h+='<th>Action</th>';tr.innerHTML=h;
+  let h='<th>No.</th><th>Participant\'s Name</th><th>Cadre</th><th>Duty Station (Facility)</th><th>District</th><th>Mobile Number Registered</th><th>Names Registered on Mobile Money</th>';
+  for(let i=1;i<=CAMPAIGN_DAYS;i++) h+='<th>Day '+i+'</th>';
+  h+='<th>Registration Date</th><th>Action</th>';tr.innerHTML=h;
 }
 function validatePhone(v){return /^7\d{8}$/.test(v.replace(/\s/g,''))}
 
@@ -190,13 +191,14 @@ function addFieldP(){
   const nm=document.getElementById('fName').value.trim(),cd=document.getElementById('fCadre').value.trim(),
   dist=document.getElementById('fDistrict').value.trim(),fac=document.getElementById('fFacility').value.trim(),
   ph=document.getElementById('fPhone').value.trim(),momo=document.getElementById('fMomoName').value.trim();
-  if(!nm||!cd||!dist||!fac||!ph||!momo){showAlert('Please fill all required fields','error');return}
+  const regDate=document.getElementById('fRegDate').value;
+  if(!nm||!cd||!dist||!fac||!ph||!momo||!regDate){showAlert('Please fill all required fields','error');return}
   if(!validatePhone(ph)){document.getElementById('fPhoneErr').style.display='block';return}
   document.getElementById('fPhoneErr').style.display='none';
   let days=[];for(let i=1;i<=CAMPAIGN_DAYS;i++){if(document.getElementById('fd'+i)&&document.getElementById('fd'+i).checked)days.push(i)}
   if(!days.length){showAlert('Please select at least one attendance day','error');return}
   const att={};for(let i=1;i<=CAMPAIGN_DAYS;i++) att[i]=days.includes(i);
-  participants.push({nm,cd,dist,fac,ph:'+256'+ph,momo,att,ts:Date.now(),regDate:new Date().toISOString().slice(0,10)});
+  participants.push({nm,cd,dist,fac,ph:'+256'+ph,momo,att,ts:Date.now(),regDate:regDate});
   save();updFieldTable();
   ['fName','fCadre','fFacility','fPhone','fMomoName'].forEach(id=>document.getElementById(id).value='');
   for(let i=1;i<=CAMPAIGN_DAYS;i++){const cb=document.getElementById('fd'+i);if(cb)cb.checked=false}
@@ -208,7 +210,7 @@ function updFieldTable(){
   const tb=document.getElementById('fTbody');tb.innerHTML='';
   participants.forEach((p,i)=>{
     let dc='';for(let d=1;d<=CAMPAIGN_DAYS;d++){const c=p.att[d];dc+='<td style="text-align:center;font-size:18px;'+(c?'color:#059669':'color:#D1D5DB')+'">'+(c?'\u2611':'\u2610')+'</td>';}
-    tb.innerHTML+='<tr><td style="text-align:center">'+(i+1)+'</td><td>'+esc(p.nm)+'</td><td>'+esc(p.cd)+'</td><td>'+esc(p.fac)+'</td><td>'+esc(p.dist)+'</td><td>'+esc(p.ph)+'</td><td>'+esc(p.momo)+'</td>'+dc+'<td><button class="btn-red" onclick="delFieldP('+i+')">Delete</button></td></tr>';
+    tb.innerHTML+='<tr><td style="text-align:center">'+(i+1)+'</td><td>'+esc(p.nm)+'</td><td>'+esc(p.cd)+'</td><td>'+esc(p.fac)+'</td><td>'+esc(p.dist)+'</td><td>'+esc(p.ph)+'</td><td>'+esc(p.momo)+'</td>'+dc+'<td>'+(p.regDate||'')+'</td><td><button class="btn-red" onclick="delFieldP('+i+')">Delete</button></td></tr>';
   });
   document.getElementById('fCount').textContent=participants.length;
   document.getElementById('fTableWrap').classList.toggle('h',!participants.length);
@@ -219,7 +221,7 @@ function clearField(){if(!participants.length)return;if(confirm('Clear all?')){p
 async function submitAll(){
   if(!participants.length){toast('Add participants first');return}
   if(!navigator.onLine){toast('You are offline');return}
-  const payload=participants.map(p=>({participant_name:p.nm,cadre:p.cd,district:p.dist,facility:p.fac,registration_date:p.regDate,day1:!!p.att[1],day2:!!p.att[2],day3:!!p.att[3],day4:!!p.att[4],day5:!!p.att[5],mobile_number:p.ph,mm_registered_names:p.momo}));
+  const payload=participants.map(p=>{const o={participant_name:p.nm,cadre:p.cd,district:p.dist,facility:p.fac,registration_date:p.regDate,mobile_number:p.ph,mm_registered_names:p.momo};for(let d=1;d<=30;d++)o['day'+d]=!!p.att[d];return o});
   try{
     const r=await fetch('/submit/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participants:payload,assessment_id:ASSESSMENT_ID})});
     const d=await r.json();
@@ -234,13 +236,15 @@ async function submitAll(){
 function dlFieldXLS(){
   if(!participants.length){toast('Add participants first');return}
   const wb=XLSX.utils.book_new();
-  const hdr=['No.',"Participant\u2019s Name",'Cadre','Duty Station','District','Mobile Number Registered','Names Registered (First & Last Names)'];
-  for(let d=1;d<=CAMPAIGN_DAYS;d++) hdr.push(ord(d));
+  const hdr=['No.',"Participant\u2019s Name",'Cadre','Duty Station (Facility)','District','Mobile Number Registered','Names Registered on Mobile Money'];
+  for(let d=1;d<=CAMPAIGN_DAYS;d++) hdr.push('Day '+d);
+  hdr.push('Registration Date');
   const rows=[hdr];
-  participants.forEach((p,i)=>{const row=[i+1,p.nm,p.cd,p.fac,p.dist,p.ph,p.momo];for(let d=1;d<=CAMPAIGN_DAYS;d++) row.push(p.att[d]?'\u2611':'\u2610');rows.push(row)});
+  participants.forEach((p,i)=>{const row=[i+1,p.nm,p.cd,p.fac,p.dist,p.ph,p.momo];for(let d=1;d<=CAMPAIGN_DAYS;d++) row.push(p.att[d]?'\u2611':'\u2610');row.push(p.regDate||'');rows.push(row)});
   const ws=XLSX.utils.aoa_to_sheet(rows);
   ws['!cols']=[{wch:5},{wch:25},{wch:16},{wch:21},{wch:16},{wch:21},{wch:30}];
   for(let d=0;d<CAMPAIGN_DAYS;d++) ws['!cols'].push({wch:8});
+  ws['!cols'].push({wch:14});
   XLSX.utils.book_append_sheet(wb,ws,'Registration & Attendance');
   XLSX.writeFile(wb,'CHAI_Registration_'+new Date().toISOString().slice(0,10)+'.xlsx');
   showAlert('\u2705 Excel downloaded!','success');

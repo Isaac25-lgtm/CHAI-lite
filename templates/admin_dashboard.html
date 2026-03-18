@@ -139,12 +139,11 @@ tbody tr:hover{background:#E8F4F4}
   <div class="tbl-wrap">
    <table>
     <thead><tr>
-     <th>No.</th><th>Name</th><th>Cadre</th><th>Facility</th><th>District</th><th>Phone</th><th>MoMo Names</th>
-     {% set ordinals = ['','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th','13th','14th','15th','16th','17th','18th','19th','20th','21st','22nd','23rd','24th','25th','26th','27th','28th','29th','30th'] %}
+     <th>No.</th><th>Participant's Name</th><th>Cadre</th><th>Duty Station (Facility)</th><th>District</th><th>Mobile Number Registered</th><th>Names Registered on Mobile Money</th>
      {% for d in range(1, campaign_days + 1) %}
-     <th>{{ ordinals[d] }}</th>
+     <th>Day {{ d }}</th>
      {% endfor %}
-     <th>Date</th><th>Action</th>
+     <th>Registration Date</th><th>Action</th>
     </tr></thead>
     <tbody>
     {% for reg in registrations %}

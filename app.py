@@ -227,10 +227,11 @@ def build_excel(registrations, campaign_days, sheet_title="Registration & Attend
     checked_font = Font(name="Calibri", size=14, bold=True, color="008000")
     unchecked_font = Font(name="Calibri", size=14, color="AAAAAA")
 
-    headers = ['No.', "Participant\u2019s Name", 'Cadre', 'Duty Station', 'District',
-               'Mobile Number Registered', 'Names Registered (First & Last Names)']
+    headers = ['No.', "Participant\u2019s Name", 'Cadre', 'Duty Station (Facility)', 'District',
+               'Mobile Number Registered', 'Names Registered on Mobile Money']
     for day in range(1, campaign_days + 1):
-        headers.append(ordinal(day))
+        headers.append(f'Day {day}')
+    headers.append('Registration Date')
     ws.append(headers)
 
     for cell in ws[1]:
@@ -245,6 +246,7 @@ def build_excel(registrations, campaign_days, sheet_title="Registration & Attend
                reg.mobile_number, reg.mm_registered_names]
         for day in range(1, campaign_days + 1):
             row.append('\u2611' if getattr(reg, f'day{day}', False) else '\u2610')
+        row.append(reg.registration_date.strftime('%Y-%m-%d') if reg.registration_date else '')
         ws.append(row)
 
         row_num = idx + 1
@@ -260,7 +262,8 @@ def build_excel(registrations, campaign_days, sheet_title="Registration & Attend
         ws.row_dimensions[row_num].height = 22
 
     base_widths = [5, 25, 16, 21, 16, 21, 30]
-    for i, w in enumerate(base_widths + [8] * campaign_days, start=1):
+    all_widths = base_widths + [8] * campaign_days + [14]
+    for i, w in enumerate(all_widths, start=1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
     return wb
 
@@ -328,7 +331,9 @@ def registration_form(assessment_id):
                          assessment=assessment,
                          campaign_days=assessment.campaign_days,
                          activity_name=assessment.name,
-                         activity_dates=assessment.dates_label)
+                         activity_dates=assessment.dates_label,
+                         start_date=assessment.start_date.strftime('%Y-%m-%d') if assessment.start_date else '',
+                         end_date=assessment.end_date.strftime('%Y-%m-%d') if assessment.end_date else '')
 
 
 @app.route('/submit/bulk', methods=['POST'])
