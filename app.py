@@ -169,6 +169,17 @@ class Registration(db.Model):
 
 with app.app_context():
     db.create_all()
+    # Migrate: add day6–day30 columns if they don't exist
+    if DATABASE_URL.startswith('postgresql'):
+        try:
+            for day_num in range(6, 31):
+                col = f'day{day_num}'
+                db.session.execute(db.text(
+                    f"ALTER TABLE registration ADD COLUMN IF NOT EXISTS {col} BOOLEAN DEFAULT FALSE"
+                ))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
 
 # ── Auth ────────────────────────────────────────────────────────────
