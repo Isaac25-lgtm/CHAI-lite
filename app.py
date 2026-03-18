@@ -2,24 +2,66 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import io
+import os
 from functools import wraps
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+import secrets
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-change-this-in-production'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///campaign_data.db'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-this-in-production')
+
+# Use Neon PostgreSQL in production, SQLite locally
+DATABASE_URL = os.environ.get('DATABASE_URL',
+    'postgresql://neondb_owner:npg_DMpsv5t9Fgki@ep-orange-credit-amz29arx-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require')
+
+# Fix for older postgres:// URIs (Render/Heroku style)
+if DATABASE_URL.startswith('postgres://'):
+    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True, 'pool_recycle': 300}
 
 db = SQLAlchemy(app)
 
-# Admin credentials (change these!)
+# Admin credentials
 ADMIN_USERNAME = 'admin'
 ADMIN_PASSWORD = 'admin123'
 
-# Database Model
+
+def ordinal(n):
+    ords = ['', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th']
+    return ords[n] if n < len(ords) else f'{n}th'
+
+
+# ── Models ──────────────────────────────────────────────────────────
+
+class Assessment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    dates_label = db.Column(db.String(200), nullable=False, default='')
+    campaign_days = db.Column(db.Integer, default=3)
+    pin = db.Column(db.String(10), nullable=False)
+    created_by = db.Column(db.String(100), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    registrations = db.relationship('Registration', backref='assessment', lazy=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'dates_label': self.dates_label,
+            'campaign_days': self.campaign_days,
+            'pin': self.pin,
+            'is_active': self.is_active,
+        }
+
+
 class Registration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    assessment_id = db.Column(db.Integer, db.ForeignKey('assessment.id'), nullable=False)
     participant_name = db.Column(db.String(200), nullable=False)
     cadre = db.Column(db.String(100), nullable=False)
     district = db.Column(db.String(100), nullable=False)
@@ -27,6 +69,9 @@ class Registration(db.Model):
     registration_date = db.Column(db.Date, nullable=False)
     day1 = db.Column(db.Boolean, default=False)
     day2 = db.Column(db.Boolean, default=False)
+    day3 = db.Column(db.Boolean, default=False)
+    day4 = db.Column(db.Boolean, default=False)
+    day5 = db.Column(db.Boolean, default=False)
     mobile_number = db.Column(db.String(15), nullable=False)
     mm_registered_names = db.Column(db.String(200), nullable=False)
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -34,40 +79,26 @@ class Registration(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'assessment_id': self.assessment_id,
             'participant_name': self.participant_name,
             'cadre': self.cadre,
             'district': self.district,
             'facility': self.facility,
             'registration_date': self.registration_date.strftime('%Y-%m-%d'),
-            'day1': self.day1,
-            'day2': self.day2,
+            'day1': self.day1, 'day2': self.day2, 'day3': self.day3,
+            'day4': self.day4, 'day5': self.day5,
             'mobile_number': self.mobile_number,
             'mm_registered_names': self.mm_registered_names,
             'submitted_at': self.submitted_at.strftime('%Y-%m-%d %H:%M:%S')
         }
 
-class Settings(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    key = db.Column(db.String(100), unique=True, nullable=False)
-    value = db.Column(db.String(200), nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-# Create tables
 with app.app_context():
     db.create_all()
-    # Initialize default settings if they don't exist
-    if not Settings.query.filter_by(key='campaign_days').first():
-        default_settings = Settings(key='campaign_days', value='1')
-        db.session.add(default_settings)
-    if not Settings.query.filter_by(key='activity_name').first():
-        default_settings = Settings(key='activity_name', value='EDIL Assessment')
-        db.session.add(default_settings)
-    if not Settings.query.filter_by(key='activity_dates').first():
-        default_settings = Settings(key='activity_dates', value='30th November to 7th December 2025')
-        db.session.add(default_settings)
-    db.session.commit()
 
-# Login required decorator
+
+# ── Auth ────────────────────────────────────────────────────────────
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -77,713 +108,479 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# Routes
+
+# ── Excel builder ───────────────────────────────────────────────────
+
+def build_excel(registrations, campaign_days, sheet_title="Registration & Attendance"):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = sheet_title
+
+    header_fill = PatternFill(start_color="2B5097", end_color="2B5097", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    cell_font = Font(name="Calibri", size=10)
+    cell_alignment = Alignment(vertical="center", wrap_text=True)
+    center_alignment = Alignment(horizontal="center", vertical="center")
+    med_border = Border(
+        left=Side(style='medium', color='000000'), right=Side(style='medium', color='000000'),
+        top=Side(style='medium', color='000000'), bottom=Side(style='medium', color='000000'))
+    thin_border = Border(
+        left=Side(style='thin', color='000000'), right=Side(style='thin', color='000000'),
+        top=Side(style='thin', color='000000'), bottom=Side(style='thin', color='000000'))
+    checked_font = Font(name="Calibri", size=14, bold=True, color="008000")
+    unchecked_font = Font(name="Calibri", size=14, color="AAAAAA")
+
+    headers = ['No.', "Participant\u2019s Name", 'Cadre', 'Duty Station', 'District',
+               'Mobile Number Registered', 'Names Registered (First & Last Names)']
+    for day in range(1, campaign_days + 1):
+        headers.append(ordinal(day))
+    ws.append(headers)
+
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = header_alignment
+        cell.border = med_border
+    ws.row_dimensions[1].height = 38
+
+    for idx, reg in enumerate(registrations, start=1):
+        row = [idx, reg.participant_name, reg.cadre, reg.facility, reg.district,
+               reg.mobile_number, reg.mm_registered_names]
+        for day in range(1, campaign_days + 1):
+            row.append('\u2611' if getattr(reg, f'day{day}', False) else '\u2610')
+        ws.append(row)
+
+        row_num = idx + 1
+        for col_num, cell in enumerate(ws[row_num], start=1):
+            cell.font = cell_font
+            cell.border = thin_border
+            cell.alignment = cell_alignment
+            if col_num == 1:
+                cell.alignment = center_alignment
+            if 7 < col_num <= 7 + campaign_days:
+                cell.alignment = center_alignment
+                cell.font = checked_font if cell.value == '\u2611' else unchecked_font
+        ws.row_dimensions[row_num].height = 22
+
+    base_widths = [5, 25, 16, 21, 16, 21, 30]
+    for i, w in enumerate(base_widths + [8] * campaign_days, start=1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+    return wb
+
+
+# ── Participant routes ──────────────────────────────────────────────
+
 @app.route('/')
 def index():
-    # Get all settings
-    campaign_days_setting = Settings.query.filter_by(key='campaign_days').first()
-    activity_name_setting = Settings.query.filter_by(key='activity_name').first()
-    activity_dates_setting = Settings.query.filter_by(key='activity_dates').first()
-    
-    campaign_days = int(campaign_days_setting.value) if campaign_days_setting else 1
-    activity_name = activity_name_setting.value if activity_name_setting else 'EDIL Assessment'
-    activity_dates = activity_dates_setting.value if activity_dates_setting else '30th November to 7th December 2025'
-    
-    return render_template('registration.html', 
-                         campaign_days=campaign_days,
-                         activity_name=activity_name,
-                         activity_dates=activity_dates)
+    """Show assessment selector for participants"""
+    assessments = Assessment.query.filter_by(is_active=True).order_by(Assessment.created_at.desc()).all()
+    return render_template('select_assessment.html', assessments=assessments)
 
-@app.route('/api/settings/campaign-days')
-def get_campaign_days():
-    """API endpoint to get campaign days setting"""
-    settings = Settings.query.filter_by(key='campaign_days').first()
-    campaign_days = int(settings.value) if settings else 1
-    return jsonify({'campaign_days': campaign_days})
 
-@app.route('/submit', methods=['POST'])
-def submit_registration():
-    try:
-        data = request.get_json()
-        
-        # Parse registration date
-        reg_date = datetime.strptime(data.get('registration_date'), '%Y-%m-%d').date()
-        
-        registration = Registration(
-            participant_name=data.get('participant_name'),
-            cadre=data.get('cadre'),
-            district=data.get('district'),
-            facility=data.get('facility'),
-            registration_date=reg_date,
-            day1=data.get('day1', False),
-            day2=data.get('day2', False),
-            mobile_number=data.get('mobile_number'),
-            mm_registered_names=data.get('mm_registered_names')
-        )
-        db.session.add(registration)
-        db.session.commit()
-        
-        # Return registration data as JSON for client-side storage
-        return jsonify({
-            'success': True,
-            'data': registration.to_dict()
-        })
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 400
+@app.route('/join', methods=['POST'])
+def join_assessment():
+    """Participant enters assessment PIN to access form"""
+    assessment_id = request.form.get('assessment_id')
+    pin = request.form.get('pin', '').strip()
+
+    if not assessment_id:
+        flash('Please select an assessment.', 'error')
+        return redirect(url_for('index'))
+
+    assessment = Assessment.query.get(assessment_id)
+    if not assessment or not assessment.is_active:
+        flash('Assessment not found or inactive.', 'error')
+        return redirect(url_for('index'))
+
+    if assessment.pin != pin:
+        flash('Incorrect PIN. Please get the correct PIN from your manager.', 'error')
+        return redirect(url_for('index'))
+
+    # Store in session
+    session['participant_assessment_id'] = assessment.id
+    return redirect(url_for('registration_form', assessment_id=assessment.id))
+
+
+@app.route('/register/<int:assessment_id>')
+def registration_form(assessment_id):
+    """Show registration form for a specific assessment"""
+    # Verify session
+    if session.get('participant_assessment_id') != assessment_id:
+        flash('Please select and enter PIN for your assessment.', 'error')
+        return redirect(url_for('index'))
+
+    assessment = Assessment.query.get_or_404(assessment_id)
+    if not assessment.is_active:
+        flash('This assessment is no longer active.', 'error')
+        return redirect(url_for('index'))
+
+    return render_template('registration.html',
+                         assessment=assessment,
+                         campaign_days=assessment.campaign_days,
+                         activity_name=assessment.name,
+                         activity_dates=assessment.dates_label)
+
 
 @app.route('/submit/bulk', methods=['POST'])
 def submit_bulk_registration():
     try:
         data = request.get_json()
         participants = data.get('participants', [])
-        
+        assessment_id = data.get('assessment_id')
+
         if not participants:
-            return jsonify({
-                'success': False,
-                'error': 'No participants provided'
-            }), 400
-        
-        facility = participants[0].get('facility') if participants else 'Unknown'
+            return jsonify({'success': False, 'error': 'No participants provided'}), 400
+        if not assessment_id:
+            return jsonify({'success': False, 'error': 'No assessment specified'}), 400
+
+        assessment = Assessment.query.get(assessment_id)
+        if not assessment:
+            return jsonify({'success': False, 'error': 'Assessment not found'}), 404
+
+        facility = participants[0].get('facility', 'Unknown')
         registrations = []
-        
-        for participant_data in participants:
-            # Parse registration date
-            reg_date = datetime.strptime(participant_data.get('registration_date'), '%Y-%m-%d').date()
-            
+
+        for p in participants:
+            reg_date = datetime.strptime(p.get('registration_date'), '%Y-%m-%d').date()
             registration = Registration(
-                participant_name=participant_data.get('participant_name'),
-                cadre=participant_data.get('cadre'),
-                district=participant_data.get('district'),
-                facility=participant_data.get('facility'),
+                assessment_id=assessment_id,
+                participant_name=p.get('participant_name'),
+                cadre=p.get('cadre'),
+                district=p.get('district'),
+                facility=p.get('facility'),
                 registration_date=reg_date,
-                day1=participant_data.get('day1', False),
-                day2=participant_data.get('day2', False),
-                mobile_number=participant_data.get('mobile_number'),
-                mm_registered_names=participant_data.get('mm_registered_names')
+                day1=p.get('day1', False), day2=p.get('day2', False),
+                day3=p.get('day3', False), day4=p.get('day4', False),
+                day5=p.get('day5', False),
+                mobile_number=p.get('mobile_number'),
+                mm_registered_names=p.get('mm_registered_names')
             )
             db.session.add(registration)
             registrations.append(registration)
-        
+
         db.session.commit()
-        
-        # Return all registration data
         return jsonify({
-            'success': True,
-            'facility': facility,
+            'success': True, 'facility': facility,
             'count': len(registrations),
-            'data': [reg.to_dict() for reg in registrations]
+            'data': [r.to_dict() for r in registrations]
         })
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 400
+        return jsonify({'success': False, 'error': str(e)}), 400
 
-@app.route('/download/facility/<facility_name>')
-def download_facility_data(facility_name):
+
+@app.route('/download/facility/<int:assessment_id>/<facility_name>')
+def download_facility_data(assessment_id, facility_name):
     try:
-        # Get all registrations for this facility
-        registrations = Registration.query.filter(
-            Registration.facility == facility_name
+        assessment = Assessment.query.get_or_404(assessment_id)
+        registrations = Registration.query.filter_by(
+            assessment_id=assessment_id, facility=facility_name
         ).order_by(Registration.submitted_at.desc()).all()
-        
+
         if not registrations:
-            return jsonify({
-                'success': False,
-                'error': 'No data found for this facility'
-            }), 404
-        
-        # Create Excel workbook
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Facility Data"
-        
-        # Define styles
-        header_fill = PatternFill(start_color="2B5097", end_color="2B5097", fill_type="solid")
-        header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-        header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        
-        cell_font = Font(name="Calibri", size=11)
-        cell_alignment = Alignment(vertical="center")
-        center_alignment = Alignment(horizontal="center", vertical="center")
-        
-        thin_border = Border(
-            left=Side(style='thin', color='000000'),
-            right=Side(style='thin', color='000000'),
-            top=Side(style='thin', color='000000'),
-            bottom=Side(style='thin', color='000000')
-        )
-        
-        # Headers
-        headers = ['No.', "Participant's Name", 'Cadre', 'Duty Station (Facility)', 'District', 
-                   'Mobile Number Registered', 'Names Registered on Mobile Money (First & Last Names)',
-                   'Day 1', 'Day 2', 'Registration Date']
-        
-        ws.append(headers)
-        
-        # Style header row
-        for cell in ws[1]:
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = header_alignment
-            cell.border = thin_border
-        
-        # Set row height for header
-        ws.row_dimensions[1].height = 35
-        
-        # Add data
-        for idx, reg in enumerate(registrations, start=1):
-            row = [
-                idx,
-                reg.participant_name,
-                reg.cadre,
-                reg.facility,
-                reg.district,
-                reg.mobile_number,
-                reg.mm_registered_names,
-                '✓' if reg.day1 else '✗',
-                '✓' if reg.day2 else '✗',
-                reg.registration_date.strftime('%Y-%m-%d')
-            ]
-            ws.append(row)
-            
-            # Style data cells
-            row_num = idx + 1
-            for col_num, cell in enumerate(ws[row_num], start=1):
-                cell.font = cell_font
-                cell.border = thin_border
-                cell.alignment = cell_alignment
-                
-                # Center align number column
-                if col_num == 1:
-                    cell.alignment = center_alignment
-                
-                # Special styling for Day 1 and Day 2 columns
-                if col_num in [8, 9]:
-                    cell.alignment = center_alignment
-                    cell.font = Font(name="Calibri", size=14, bold=True, 
-                                   color="008000" if cell.value == '✓' else "FF0000")
-        
-        # Set column widths
-        column_widths = [6, 28, 20, 35, 20, 25, 45, 10, 10, 18]
-        for idx, width in enumerate(column_widths, start=1):
-            ws.column_dimensions[openpyxl.utils.get_column_letter(idx)].width = width
-        
-        # Save to bytes
+            return jsonify({'success': False, 'error': 'No data found'}), 404
+
+        wb = build_excel(registrations, assessment.campaign_days, "Facility Data")
         output = io.BytesIO()
         wb.save(output)
         output.seek(0)
-        
-        # Create filename
-        safe_facility_name = facility_name.replace(' ', '_').replace('/', '_')
-        filename = f'{safe_facility_name}_registrations_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
-        
-        return send_file(
-            output,
+
+        safe_name = facility_name.replace(' ', '_').replace('/', '_')
+        filename = f'CHAI_{safe_name}_{datetime.now().strftime("%Y-%m-%d")}.xlsx'
+        return send_file(output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            as_attachment=True,
-            download_name=filename
-        )
+            as_attachment=True, download_name=filename)
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ── Admin routes ────────────────────────────────────────────────────
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        
         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             session['admin_logged_in'] = True
+            session['admin_user'] = username
             flash('Login successful!', 'success')
-            return redirect(url_for('admin_dashboard'))
+            return redirect(url_for('admin_assessments'))
         else:
-            flash('Invalid credentials. Please try again.', 'error')
-    
+            flash('Invalid credentials.', 'error')
     return render_template('admin_login.html')
+
 
 @app.route('/admin/logout')
 def admin_logout():
     session.pop('admin_logged_in', None)
+    session.pop('admin_user', None)
     flash('You have been logged out.', 'info')
     return redirect(url_for('admin_login'))
 
-@app.route('/admin/dashboard')
+
+@app.route('/admin/assessments')
 @login_required
-def admin_dashboard():
-    # Get filter parameters
+def admin_assessments():
+    """List all assessments for this manager"""
+    assessments = Assessment.query.order_by(Assessment.created_at.desc()).all()
+    # Get registration counts per assessment
+    counts = {}
+    for a in assessments:
+        counts[a.id] = Registration.query.filter_by(assessment_id=a.id).count()
+    return render_template('admin_assessments.html', assessments=assessments, counts=counts)
+
+
+@app.route('/admin/assessments/create', methods=['POST'])
+@login_required
+def create_assessment():
+    name = request.form.get('name', '').strip()
+    dates_label = request.form.get('dates_label', '').strip()
+    campaign_days = request.form.get('campaign_days', '3')
+    pin = request.form.get('pin', '').strip()
+
+    if not name:
+        flash('Assessment name is required.', 'error')
+        return redirect(url_for('admin_assessments'))
+
+    try:
+        campaign_days_int = int(campaign_days)
+        if campaign_days_int < 1 or campaign_days_int > 5:
+            raise ValueError
+    except ValueError:
+        flash('Campaign days must be between 1 and 5.', 'error')
+        return redirect(url_for('admin_assessments'))
+
+    if not pin or len(pin) < 3:
+        flash('PIN must be at least 3 characters.', 'error')
+        return redirect(url_for('admin_assessments'))
+
+    # Check PIN uniqueness among active assessments
+    existing = Assessment.query.filter_by(pin=pin, is_active=True).first()
+    if existing:
+        flash('This PIN is already in use by another active assessment. Choose a different one.', 'error')
+        return redirect(url_for('admin_assessments'))
+
+    assessment = Assessment(
+        name=name,
+        dates_label=dates_label,
+        campaign_days=campaign_days_int,
+        pin=pin,
+        created_by=session.get('admin_user', 'admin')
+    )
+    db.session.add(assessment)
+    db.session.commit()
+    flash(f'Assessment "{name}" created! PIN: {pin}', 'success')
+    return redirect(url_for('admin_assessments'))
+
+
+@app.route('/admin/assessments/<int:assessment_id>/toggle', methods=['POST'])
+@login_required
+def toggle_assessment(assessment_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+    assessment.is_active = not assessment.is_active
+    db.session.commit()
+    status = 'activated' if assessment.is_active else 'deactivated'
+    flash(f'Assessment "{assessment.name}" {status}.', 'success')
+    return redirect(url_for('admin_assessments'))
+
+
+@app.route('/admin/assessments/<int:assessment_id>/delete', methods=['POST'])
+@login_required
+def delete_assessment(assessment_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+    # Delete all registrations first
+    Registration.query.filter_by(assessment_id=assessment_id).delete()
+    db.session.delete(assessment)
+    db.session.commit()
+    flash(f'Assessment "{assessment.name}" and all its data deleted.', 'success')
+    return redirect(url_for('admin_assessments'))
+
+
+@app.route('/admin/dashboard/<int:assessment_id>')
+@login_required
+def admin_dashboard(assessment_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+    campaign_days = assessment.campaign_days
+
     search = request.args.get('search', '')
     district = request.args.get('district', '')
     date_from = request.args.get('date_from', '')
     date_to = request.args.get('date_to', '')
-    
-    # Build query
-    query = Registration.query
-    
-    # Apply filters
+
+    query = Registration.query.filter_by(assessment_id=assessment_id)
     if search:
-        query = query.filter(
-            db.or_(
-                Registration.participant_name.ilike(f'%{search}%'),
-                Registration.mobile_number.ilike(f'%{search}%'),
-                Registration.facility.ilike(f'%{search}%')
-            )
-        )
-    
+        query = query.filter(db.or_(
+            Registration.participant_name.ilike(f'%{search}%'),
+            Registration.mobile_number.ilike(f'%{search}%'),
+            Registration.facility.ilike(f'%{search}%')
+        ))
     if district:
         query = query.filter(Registration.district == district)
-    
     if date_from:
         try:
-            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
-            query = query.filter(Registration.registration_date >= date_from_obj)
-        except:
+            query = query.filter(Registration.registration_date >= datetime.strptime(date_from, '%Y-%m-%d').date())
+        except ValueError:
             pass
-    
     if date_to:
         try:
-            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
-            query = query.filter(Registration.registration_date <= date_to_obj)
-        except:
+            query = query.filter(Registration.registration_date <= datetime.strptime(date_to, '%Y-%m-%d').date())
+        except ValueError:
             pass
-    
+
     registrations = query.order_by(Registration.submitted_at.desc()).all()
-    
-    # Get all unique districts for filter dropdown
-    districts = db.session.query(Registration.district).distinct().order_by(Registration.district).all()
-    districts = [d[0] for d in districts]
-    
-    # Stats
-    total_count = Registration.query.count()
+
+    districts = [d[0] for d in db.session.query(Registration.district).filter_by(
+        assessment_id=assessment_id).distinct().order_by(Registration.district).all()]
+    total_count = Registration.query.filter_by(assessment_id=assessment_id).count()
     today = datetime.utcnow().date()
-    today_count = Registration.query.filter(
-        db.func.date(Registration.submitted_at) == today
-    ).count()
-    
-    # Filtered count
-    filtered_count = len(registrations)
-    
-    return render_template('admin_dashboard.html', 
-                         registrations=registrations,
-                         total_count=total_count,
-                         today_count=today_count,
-                         filtered_count=filtered_count,
-                         search=search,
-                         districts=districts,
-                         selected_district=district,
-                         date_from=date_from,
-                         date_to=date_to)
+    today_count = Registration.query.filter_by(assessment_id=assessment_id).filter(
+        db.func.date(Registration.submitted_at) == today).count()
 
-@app.route('/admin/download/excel')
+    thirty_days_ago = today - timedelta(days=30)
+    daily_registrations = db.session.query(
+        db.func.date(Registration.submitted_at).label('date'),
+        db.func.count(Registration.id).label('count')
+    ).filter(Registration.assessment_id == assessment_id,
+             Registration.submitted_at >= thirty_days_ago
+    ).group_by(db.func.date(Registration.submitted_at)).order_by('date').all()
+
+    district_stats = db.session.query(
+        Registration.district, db.func.count(Registration.id).label('count')
+    ).filter_by(assessment_id=assessment_id
+    ).group_by(Registration.district).order_by(db.func.count(Registration.id).desc()).limit(10).all()
+
+    facility_stats = db.session.query(
+        Registration.facility, db.func.count(Registration.id).label('count')
+    ).filter_by(assessment_id=assessment_id
+    ).group_by(Registration.facility).order_by(db.func.count(Registration.id).desc()).limit(10).all()
+
+    return render_template('admin_dashboard.html',
+        assessment=assessment,
+        registrations=registrations,
+        total_count=total_count,
+        today_count=today_count,
+        filtered_count=len(registrations),
+        search=search, districts=districts,
+        selected_district=district,
+        date_from=date_from, date_to=date_to,
+        daily_registrations=daily_registrations,
+        district_stats=district_stats,
+        facility_stats=facility_stats,
+        campaign_days=campaign_days)
+
+
+@app.route('/admin/settings/<int:assessment_id>', methods=['GET', 'POST'])
 @login_required
-def download_excel():
-    # Get same filters as dashboard
+def admin_settings(assessment_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+
+    if request.method == 'POST':
+        name = request.form.get('activity_name', '').strip()
+        dates_label = request.form.get('activity_dates', '').strip()
+        campaign_days = request.form.get('campaign_days', '3')
+        pin = request.form.get('pin', '').strip()
+
+        if name:
+            assessment.name = name
+        if dates_label:
+            assessment.dates_label = dates_label
+        if pin and len(pin) >= 3:
+            # Check uniqueness
+            existing = Assessment.query.filter(
+                Assessment.pin == pin, Assessment.is_active == True,
+                Assessment.id != assessment_id).first()
+            if existing:
+                flash('PIN already in use by another assessment.', 'error')
+                return redirect(url_for('admin_settings', assessment_id=assessment_id))
+            assessment.pin = pin
+
+        try:
+            cd = int(campaign_days)
+            if 1 <= cd <= 5:
+                assessment.campaign_days = cd
+        except ValueError:
+            pass
+
+        db.session.commit()
+        flash('Settings updated!', 'success')
+        return redirect(url_for('admin_settings', assessment_id=assessment_id))
+
+    return render_template('admin_settings.html', assessment=assessment,
+                         campaign_days=assessment.campaign_days,
+                         activity_name=assessment.name,
+                         activity_dates=assessment.dates_label)
+
+
+@app.route('/admin/download/excel/<int:assessment_id>')
+@login_required
+def download_excel(assessment_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+
     district = request.args.get('district', '')
     date_from = request.args.get('date_from', '')
     date_to = request.args.get('date_to', '')
-    
-    # Build query with filters
-    query = Registration.query
-    
+
+    query = Registration.query.filter_by(assessment_id=assessment_id)
     if district:
         query = query.filter(Registration.district == district)
-    
     if date_from:
         try:
-            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
-            query = query.filter(Registration.registration_date >= date_from_obj)
-        except:
+            query = query.filter(Registration.registration_date >= datetime.strptime(date_from, '%Y-%m-%d').date())
+        except ValueError:
             pass
-    
     if date_to:
         try:
-            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
-            query = query.filter(Registration.registration_date <= date_to_obj)
-        except:
+            query = query.filter(Registration.registration_date <= datetime.strptime(date_to, '%Y-%m-%d').date())
+        except ValueError:
             pass
-    
+
     registrations = query.order_by(Registration.submitted_at.desc()).all()
-    
-    # Create Excel workbook
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Raw Data"
-    
-    # Define styles
-    header_fill = PatternFill(start_color="2B5097", end_color="2B5097", fill_type="solid")
-    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    
-    cell_font = Font(name="Calibri", size=11)
-    cell_alignment = Alignment(vertical="center")
-    center_alignment = Alignment(horizontal="center", vertical="center")
-    
-    thin_border = Border(
-        left=Side(style='thin', color='000000'),
-        right=Side(style='thin', color='000000'),
-        top=Side(style='thin', color='000000'),
-        bottom=Side(style='thin', color='000000')
-    )
-    
-    # Headers
-    headers = ['No.', "Participant's Name", 'Cadre', 'Duty Station (Facility)', 'District', 
-               'Mobile Number Registered', 'Names Registered on Mobile Money (First & Last Names)',
-               'Day 1', 'Day 2', 'Registration Date']
-    
-    ws.append(headers)
-    
-    # Style header row
-    for cell in ws[1]:
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = header_alignment
-        cell.border = thin_border
-    
-    # Set row height for header
-    ws.row_dimensions[1].height = 35
-    
-    # Add data
-    for idx, reg in enumerate(registrations, start=1):
-        row = [
-            idx,
-            reg.participant_name,
-            reg.cadre,
-            reg.facility,
-            reg.district,
-            reg.mobile_number,
-            reg.mm_registered_names,
-            '✓' if reg.day1 else '✗',
-            '✓' if reg.day2 else '✗',
-            reg.registration_date.strftime('%Y-%m-%d')
-        ]
-        ws.append(row)
-        
-        # Style data cells
-        row_num = idx + 1
-        for col_num, cell in enumerate(ws[row_num], start=1):
-            cell.font = cell_font
-            cell.border = thin_border
-            cell.alignment = cell_alignment
-            
-            # Center align number column
-            if col_num == 1:
-                cell.alignment = center_alignment
-            
-            # Special styling for Day 1 and Day 2 columns
-            if col_num in [8, 9]:
-                cell.alignment = center_alignment
-                cell.font = Font(name="Calibri", size=14, bold=True, 
-                               color="008000" if cell.value == '✓' else "FF0000")
-    
-    # Set column widths
-    column_widths = [6, 28, 20, 35, 20, 25, 45, 10, 10, 18]
-    for idx, width in enumerate(column_widths, start=1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(idx)].width = width
-    
-    # Save to bytes
+    wb = build_excel(registrations, assessment.campaign_days)
+
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
-    
-    # Create filename with filter info
-    filename_parts = ['participant_registrations_RAW']
-    if district:
-        filename_parts.append(district.replace(' ', '_'))
-    if date_from or date_to:
-        if date_from and date_to:
-            filename_parts.append(f'{date_from}_to_{date_to}')
-        elif date_from:
-            filename_parts.append(f'from_{date_from}')
-        elif date_to:
-            filename_parts.append(f'until_{date_to}')
-    filename_parts.append(datetime.now().strftime('%Y%m%d_%H%M%S'))
-    filename = '_'.join(filename_parts) + '.xlsx'
-    
-    return send_file(
-        output,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        as_attachment=True,
-        download_name=filename
-    )
 
-@app.route('/admin/download/analyzed')
-@login_required
-def download_analyzed():
-    # Get same filters as dashboard
-    district = request.args.get('district', '')
-    date_from = request.args.get('date_from', '')
-    date_to = request.args.get('date_to', '')
-    
-    # Build query with filters
-    query = Registration.query
-    
-    if district:
-        query = query.filter(Registration.district == district)
-    
-    if date_from:
-        try:
-            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
-            query = query.filter(Registration.registration_date >= date_from_obj)
-        except:
-            pass
-    
-    if date_to:
-        try:
-            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
-            query = query.filter(Registration.registration_date <= date_to_obj)
-        except:
-            pass
-    
-    registrations = query.order_by(Registration.submitted_at.desc()).all()
-    
-    # Create Excel workbook
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Analyzed Attendance"
-    
-    # Define styles
-    header_fill = PatternFill(start_color="2B5097", end_color="2B5097", fill_type="solid")
-    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    
-    cell_font = Font(name="Calibri", size=11)
-    cell_alignment = Alignment(vertical="center")
-    center_alignment = Alignment(horizontal="center", vertical="center")
-    
-    thin_border = Border(
-        left=Side(style='thin', color='000000'),
-        right=Side(style='thin', color='000000'),
-        top=Side(style='thin', color='000000'),
-        bottom=Side(style='thin', color='000000')
-    )
-    
-    # Headers for ANALYZED data (no Day 1/Day 2 columns, just Attendance Date)
-    headers = ['No.', "Participant's Name", 'Cadre', 'Duty Station (Facility)', 'District', 
-               'Attendance Date', 'Mobile Number Registered', 
-               'Names Registered on Mobile Money (First & Last Names)']
-    
-    ws.append(headers)
-    
-    # Style header row
-    for cell in ws[1]:
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = header_alignment
-        cell.border = thin_border
-    
-    # Set row height for header
-    ws.row_dimensions[1].height = 35
-    
-    # Add ANALYZED data - participants appear once or twice based on attendance
-    row_num = 1
-    for reg in registrations:
-        # Registration date is considered Day 2
-        registration_date = reg.registration_date
-        day1_date = registration_date - timedelta(days=1)
-        
-        # If Day 1 is checked, add a row with Day 1 date
-        if reg.day1:
-            row_num += 1
-            row = [
-                row_num - 1,
-                reg.participant_name,
-                reg.cadre,
-                reg.facility,
-                reg.district,
-                day1_date.strftime('%Y-%m-%d'),
-                reg.mobile_number,
-                reg.mm_registered_names
-            ]
-            ws.append(row)
-            
-            # Style data cells
-            for col_num, cell in enumerate(ws[row_num], start=1):
-                cell.font = cell_font
-                cell.border = thin_border
-                cell.alignment = cell_alignment
-                
-                # Center align number and date columns
-                if col_num in [1, 6]:
-                    cell.alignment = center_alignment
-        
-        # If Day 2 is checked, add a row with Day 2 date (registration date)
-        if reg.day2:
-            row_num += 1
-            row = [
-                row_num - 1,
-                reg.participant_name,
-                reg.cadre,
-                reg.facility,
-                reg.district,
-                registration_date.strftime('%Y-%m-%d'),
-                reg.mobile_number,
-                reg.mm_registered_names
-            ]
-            ws.append(row)
-            
-            # Style data cells
-            for col_num, cell in enumerate(ws[row_num], start=1):
-                cell.font = cell_font
-                cell.border = thin_border
-                cell.alignment = cell_alignment
-                
-                # Center align number and date columns
-                if col_num in [1, 6]:
-                    cell.alignment = center_alignment
-    
-    # Set column widths
-    column_widths = [6, 28, 20, 35, 20, 18, 25, 45]
-    for idx, width in enumerate(column_widths, start=1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(idx)].width = width
-    
-    # Save to bytes
-    output = io.BytesIO()
-    wb.save(output)
-    output.seek(0)
-    
-    # Create filename with filter info
-    filename_parts = ['participant_attendance_ANALYZED']
-    if district:
-        filename_parts.append(district.replace(' ', '_'))
-    if date_from or date_to:
-        if date_from and date_to:
-            filename_parts.append(f'{date_from}_to_{date_to}')
-        elif date_from:
-            filename_parts.append(f'from_{date_from}')
-        elif date_to:
-            filename_parts.append(f'until_{date_to}')
-    filename_parts.append(datetime.now().strftime('%Y%m%d_%H%M%S'))
-    filename = '_'.join(filename_parts) + '.xlsx'
-    
-    return send_file(
-        output,
+    safe_name = assessment.name.replace(' ', '_')
+    filename = f'CHAI_{safe_name}_{datetime.now().strftime("%Y-%m-%d")}.xlsx'
+    return send_file(output,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        as_attachment=True,
-        download_name=filename
-    )
+        as_attachment=True, download_name=filename)
 
-@app.route('/admin/delete/<int:id>', methods=['POST'])
+
+@app.route('/admin/delete/<int:assessment_id>/<int:reg_id>', methods=['POST'])
 @login_required
-def delete_registration(id):
-    # Preserve filters
-    search = request.args.get('search', '')
-    district = request.args.get('district', '')
-    date_from = request.args.get('date_from', '')
-    date_to = request.args.get('date_to', '')
-    
-    registration = Registration.query.get_or_404(id)
+def delete_registration(assessment_id, reg_id):
+    registration = Registration.query.get_or_404(reg_id)
     db.session.delete(registration)
     db.session.commit()
-    flash('Registration deleted successfully.', 'success')
-    
-    # Redirect with preserved filters
-    return redirect(url_for('admin_dashboard', 
-                           search=search, 
-                           district=district, 
-                           date_from=date_from, 
-                           date_to=date_to))
+    flash('Registration deleted.', 'success')
+    return redirect(url_for('admin_dashboard', assessment_id=assessment_id))
 
-@app.route('/admin/clear-all', methods=['POST'])
+
+@app.route('/admin/clear-all/<int:assessment_id>', methods=['POST'])
 @login_required
-def clear_all():
-    # Preserve filters
-    search = request.args.get('search', '')
-    district = request.args.get('district', '')
-    date_from = request.args.get('date_from', '')
-    date_to = request.args.get('date_to', '')
-    
-    Registration.query.delete()
+def clear_all(assessment_id):
+    Registration.query.filter_by(assessment_id=assessment_id).delete()
     db.session.commit()
     flash('All registrations cleared.', 'success')
-    
-    # Redirect with preserved filters
-    return redirect(url_for('admin_dashboard', 
-                           search=search, 
-                           district=district, 
-                           date_from=date_from, 
-                           date_to=date_to))
+    return redirect(url_for('admin_dashboard', assessment_id=assessment_id))
 
-@app.route('/admin/settings', methods=['GET', 'POST'])
-@login_required
-def admin_settings():
-    if request.method == 'POST':
-        # Update campaign days
-        campaign_days = request.form.get('campaign_days', '1')
-        try:
-            campaign_days_int = int(campaign_days)
-            if campaign_days_int < 1 or campaign_days_int > 7:
-                flash('Campaign days must be between 1 and 7', 'error')
-                return redirect(url_for('admin_settings'))
-        except ValueError:
-            flash('Invalid number of campaign days', 'error')
-            return redirect(url_for('admin_settings'))
-        
-        # Update activity name
-        activity_name = request.form.get('activity_name', 'EDIL Assessment').strip()
-        if not activity_name:
-            activity_name = 'EDIL Assessment'
-        
-        # Update activity dates
-        activity_dates = request.form.get('activity_dates', '30th November to 7th December 2025').strip()
-        if not activity_dates:
-            activity_dates = '30th November to 7th December 2025'
-        
-        # Save campaign days
-        settings = Settings.query.filter_by(key='campaign_days').first()
-        if settings:
-            settings.value = str(campaign_days_int)
-            settings.updated_at = datetime.utcnow()
-        else:
-            settings = Settings(key='campaign_days', value=str(campaign_days_int))
-            db.session.add(settings)
-        
-        # Save activity name
-        settings = Settings.query.filter_by(key='activity_name').first()
-        if settings:
-            settings.value = activity_name
-            settings.updated_at = datetime.utcnow()
-        else:
-            settings = Settings(key='activity_name', value=activity_name)
-            db.session.add(settings)
-        
-        # Save activity dates
-        settings = Settings.query.filter_by(key='activity_dates').first()
-        if settings:
-            settings.value = activity_dates
-            settings.updated_at = datetime.utcnow()
-        else:
-            settings = Settings(key='activity_dates', value=activity_dates)
-            db.session.add(settings)
-        
-        db.session.commit()
-        flash('Settings updated successfully!', 'success')
-        return redirect(url_for('admin_settings'))
-    
-    # GET request - show settings page
-    campaign_days_setting = Settings.query.filter_by(key='campaign_days').first()
-    activity_name_setting = Settings.query.filter_by(key='activity_name').first()
-    activity_dates_setting = Settings.query.filter_by(key='activity_dates').first()
-    
-    campaign_days = int(campaign_days_setting.value) if campaign_days_setting else 1
-    activity_name = activity_name_setting.value if activity_name_setting else 'EDIL Assessment'
-    activity_dates = activity_dates_setting.value if activity_dates_setting else '30th November to 7th December 2025'
-    
-    return render_template('admin_settings.html', 
-                         campaign_days=campaign_days,
-                         activity_name=activity_name,
-                         activity_dates=activity_dates)
+
+# ── API ─────────────────────────────────────────────────────────────
+
+@app.route('/api/assessments')
+def api_assessments():
+    assessments = Assessment.query.filter_by(is_active=True).all()
+    return jsonify([a.to_dict() for a in assessments])
+
 
 @app.route('/healthz')
 def healthz():
     return jsonify(status='ok')
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

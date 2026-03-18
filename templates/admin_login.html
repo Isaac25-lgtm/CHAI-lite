@@ -1,157 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        
-        .login-container {
-            max-width: 400px;
-            width: 100%;
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-        }
-        
-        h1 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-            text-align: center;
-        }
-        
-        .subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 14px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 5px;
-            color: #333;
-            font-weight: 500;
-        }
-        
-        input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-        
-        input:focus {
-            outline: none;
-            border-color: #2c3e50;
-        }
-        
-        .btn-login {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        
-        .btn-login:hover {
-            transform: translateY(-2px);
-        }
-        
-        .alert {
-            padding: 12px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-        
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .back-link {
-            text-align: center;
-            margin-top: 20px;
-        }
-        
-        .back-link a {
-            color: #2c3e50;
-            text-decoration: none;
-            font-size: 14px;
-        }
-        
-        .back-link a:hover {
-            text-decoration: underline;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHAI Uganda - Admin Login</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#1F2937}
+.card{background:white;max-width:400px;width:100%;padding:40px 32px;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);text-align:center;border:1px solid #E5E7EB}
+.logo{width:60px;height:60px;background:white;border-radius:14px;border:2px solid #F3F4F6;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.logo img{width:100%;height:100%;object-fit:contain;padding:6px}
+h1{font-family:'Instrument Serif',serif;font-size:24px;color:#0A3D3E;margin-bottom:2px}
+.sub{font-size:12px;color:#9CA3AF;margin-bottom:24px}
+.fg{margin-bottom:16px;text-align:left}
+.fg label{display:block;margin-bottom:5px;color:#374151;font-weight:600;font-size:13px}
+.fg input{width:100%;padding:11px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:15px;font-family:inherit;color:#1F2937;background:white}
+.fg input:focus{outline:none;border-color:#0F5B5C;box-shadow:0 0 0 3px rgba(15,91,92,.08)}
+.btn{padding:14px 24px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;width:100%;background:#0F5B5C;color:white;transition:.15s}
+.btn:hover{background:#178182}
+.btn:active{transform:scale(.98)}
+.flash{padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px}
+.flash-error{background:#FEE2E2;border:1px solid #FECACA;color:#991B1B}
+.flash-success{background:#D1FAE5;border:1px solid #A7F3D0;color:#065F46}
+.flash-warning{background:#FEF3C7;border:1px solid #FDE68A;color:#92400E}
+.flash-info{background:#E0F2FE;border:1px solid #BAE6FD;color:#075985}
+.back{font-size:12px;color:#9CA3AF;margin-top:14px;display:block;text-decoration:none}
+</style>
 </head>
 <body>
-    <div class="login-container">
-        <h1>Admin Login</h1>
-        <p class="subtitle">Enter your credentials to access the dashboard</p>
-        
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        
-        <form action="/admin/login" method="POST">
-            <div class="form-group">
-                <label>Username</label>
-                <input type="text" name="username" required autofocus>
-            </div>
-            
-            <div class="form-group">
-                <label>Password</label>
-                <input type="password" name="password" required>
-            </div>
-            
-            <button type="submit" class="btn-login">Login</button>
-        </form>
-        
-        <div class="back-link">
-            <a href="/">← Back to Registration</a>
-        </div>
-    </div>
+<div class="card">
+ <div class="logo"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2ZmZiIgcng9IjEyIi8+PHRleHQgeD0iNTAiIHk9IjM4IiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtc2l6ZT0iMTgiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjMEY1QjVDIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5DSEFJPC90ZXh0Pjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iOCIgZmlsbD0iIzZCNzI4MCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Q2xpbnRvbiBIZWFsdGg8L3RleHQ+PHRleHQgeD0iNTAiIHk9IjY1IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSI4IiBmaWxsPSIjNkI3MjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5BY2Nlc3MgSW5pdGlhdGl2ZTwvdGV4dD48L3N2Zz4=" alt="CHAI"></div>
+ <h1>CHAI Uganda</h1>
+ <p class="sub">Clinton Health Access Initiative &middot; Admin Portal</p>
+
+ {% with messages = get_flashed_messages(with_categories=true) %}
+ {% if messages %}
+  {% for category, message in messages %}
+  <div class="flash flash-{{ category }}">{{ message }}</div>
+  {% endfor %}
+ {% endif %}
+ {% endwith %}
+
+ <form method="POST">
+  <div class="fg"><label>Username</label><input type="text" name="username" placeholder="Enter username" required></div>
+  <div class="fg"><label>Password</label><input type="password" name="password" placeholder="Enter password" required></div>
+  <button type="submit" class="btn">Login</button>
+ </form>
+ <a href="/" class="back">Back to Registration</a>
+</div>
 </body>
 </html>

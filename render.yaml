@@ -1,8 +1,13 @@
 services:
   - type: web
-    name: participant-registration
+    name: chai-field-operations
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
     healthCheckPath: /healthz
     plan: free
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:npg_DMpsv5t9Fgki@ep-orange-credit-amz29arx-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require
+      - key: SECRET_KEY
+        generateValue: true

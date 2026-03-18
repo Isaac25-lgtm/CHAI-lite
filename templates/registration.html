@@ -1,1217 +1,255 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Participant Registration System</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .header {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-
-        .header h1 {
-            color: #1F4E78;
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            color: #666;
-            font-size: 16px;
-        }
-
-        .alert {
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: none;
-            animation: slideIn 0.3s ease;
-        }
-
-        .alert-success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-
-        .alert-error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .form-card {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-
-        .form-card h2 {
-            color: #1F4E78;
-            margin-bottom: 20px;
-            font-size: 20px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 500;
-        }
-
-        .required {
-            color: #dc3545;
-        }
-
-        .form-group input[type="text"],
-        .form-group input[type="tel"],
-        .form-group input[type="date"],
-        .form-group select {
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 15px;
-            transition: border-color 0.3s;
-            background: white;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .form-group input.error,
-        .form-group select.error {
-            border-color: #dc3545;
-        }
-
-        .form-group select:disabled {
-            background: #f8f9fa;
-            cursor: not-allowed;
-        }
-
-        .error-message {
-            color: #dc3545;
-            font-size: 13px;
-            margin-top: 5px;
-            display: none;
-        }
-
-        .checkbox-group {
-            display: flex;
-            gap: 30px;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            background: #f8f9fa;
-        }
-
-        .checkbox-group.error {
-            border-color: #dc3545;
-        }
-
-        .checkbox-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .checkbox-item input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
-
-        .checkbox-item label {
-            margin: 0;
-            cursor: pointer;
-            user-select: none;
-            font-weight: normal;
-        }
-
-        .btn {
-            padding: 14px 28px;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-            width: 100%;
-        }
-
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .network-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        .network-online {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .network-offline {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .instructions {
-            background: #e7f3ff;
-            border: 1px solid #b3d9ff;
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-
-        .instructions h3 {
-            color: #004085;
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-
-        .instructions ol {
-            padding-left: 20px;
-            color: #004085;
-        }
-
-        .instructions li {
-            margin-bottom: 8px;
-            line-height: 1.6;
-        }
-
-        .admin-link {
-            text-align: center;
-            margin-top: 20px;
-            color: #666;
-        }
-
-        .admin-link a {
-            color: #667eea;
-            text-decoration: none;
-        }
-
-        .admin-link a:hover {
-            text-decoration: underline;
-        }
-
-        .recent-submissions {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 20px;
-            border: 2px solid #e9ecef;
-        }
-
-        .recent-submissions h3 {
-            color: #333;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .recent-submissions h3::before {
-            content: "📋";
-            font-size: 20px;
-        }
-
-        .submission-item {
-            background: white;
-            padding: 12px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-            border-left: 4px solid #28a745;
-            font-size: 14px;
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-        }
-
-        .submission-item .check-icon {
-            color: #28a745;
-            font-size: 20px;
-            font-weight: bold;
-            flex-shrink: 0;
-        }
-
-        .submission-item .content {
-            flex: 1;
-        }
-
-        .submission-item strong {
-            color: #333;
-            display: block;
-        }
-
-        .submission-item small {
-            color: #666;
-            display: block;
-            margin-top: 5px;
-        }
-
-        .no-submissions {
-            text-align: center;
-            color: #666;
-            padding: 20px;
-            font-style: italic;
-        }
-
-        .pending-participants {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-top: 30px;
-        }
-
-        .facility-group {
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .facility-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #dee2e6;
-        }
-
-        .facility-header h3 {
-            color: #1F4E78;
-            margin: 0;
-            font-size: 18px;
-        }
-
-        .facility-count {
-            background: #667eea;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .participant-list {
-            margin-bottom: 15px;
-        }
-
-        .participant-item {
-            background: white;
-            padding: 12px 15px;
-            border-radius: 6px;
-            margin-bottom: 8px;
-            border-left: 4px solid #667eea;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .participant-info {
-            flex: 1;
-        }
-
-        .participant-info strong {
-            color: #333;
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        .participant-info small {
-            color: #666;
-            display: block;
-        }
-
-        .remove-participant {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: background 0.3s;
-        }
-
-        .remove-participant:hover {
-            background: #c82333;
-        }
-
-        .btn-submit-facility {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            width: 100%;
-        }
-
-        .btn-submit-facility:hover {
-            background: #218838;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
-        }
-
-        .btn-submit-facility:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        @media (max-width: 768px) {
-            .checkbox-group {
-                flex-direction: column;
-                gap: 15px;
-            }
-            
-            .facility-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CHAI Uganda - {{ activity_name }}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:#1F2937;-webkit-font-smoothing:antialiased}
+.h{display:none!important}
+@keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.container{max-width:800px;margin:0 auto;padding:16px}
+.header{background:linear-gradient(135deg,#0F5B5C,#0A3D3E);color:white;padding:24px;border-radius:12px;margin-bottom:20px;position:relative}
+.header h1{font-family:'Instrument Serif',serif;font-size:24px;margin-bottom:4px}
+.header p{font-size:13px;opacity:.75}
+.header .logo-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.header .logo-row img{width:40px;height:40px;border-radius:8px;object-fit:contain;background:white;padding:4px}
+.net-badge{position:absolute;top:16px;right:16px;display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600}
+.net-badge.on{background:rgba(5,150,105,.25);color:#A7F3D0}.net-badge.off{background:rgba(220,38,38,.25);color:#FCA5A5}
+.alert{padding:14px 18px;border-radius:8px;margin-bottom:16px;animation:slideIn .3s ease;font-size:14px;display:none}
+.alert-success{background:#D1FAE5;border:1px solid #A7F3D0;color:#065F46}
+.alert-error{background:#FEE2E2;border:1px solid #FECACA;color:#991B1B}
+.card{background:white;padding:24px;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;border:1px solid #E5E7EB}
+.card h2{color:#0A3D3E;font-size:18px;margin-bottom:16px;font-family:'Instrument Serif',serif}
+.card.teal-border{border-left:4px solid #0F5B5C}
+.fg{margin-bottom:16px}
+.fg label{display:block;margin-bottom:5px;color:#374151;font-weight:600;font-size:13px}
+.fg .req{color:#DC2626}
+.fg input,.fg select{width:100%;padding:11px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:15px;font-family:inherit;color:#1F2937;background:white;-webkit-appearance:none;transition:.2s}
+.fg input:focus,.fg select:focus{outline:none;border-color:#0F5B5C;box-shadow:0 0 0 3px rgba(15,91,92,.08)}
+.fg input::placeholder{color:#9CA3AF}
+.fg .err{color:#DC2626;font-size:12px;margin-top:4px;display:none}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.phone-row{display:flex;align-items:center}
+.phone-row .prefix{background:#F3F4F6;border:1.5px solid #E5E7EB;border-right:none;padding:11px 12px;border-radius:8px 0 0 8px;color:#6B7280;font-weight:600;font-size:14px;white-space:nowrap}
+.phone-row input{border-radius:0 8px 8px 0!important;border-left:none!important;flex:1}
+.cb-group{display:flex;gap:16px;padding:12px 16px;border:1.5px solid #E5E7EB;border-radius:8px;background:#F9FAFB;flex-wrap:wrap}
+.cb-item{display:flex;align-items:center;gap:6px}
+.cb-item input[type=checkbox]{width:22px;height:22px;accent-color:#0F5B5C;cursor:pointer}
+.cb-item label{cursor:pointer;font-size:14px;font-weight:500;user-select:none}
+.btn{padding:14px 24px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s;display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%}
+.btn:active{transform:scale(.98)}.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-teal{background:#0F5B5C;color:white}.btn-teal:hover{background:#178182}
+.btn-green{background:#059669;color:white}
+.btn-gray{background:#6B7280;color:white}
+.btn-red{background:#DC2626;color:white;padding:8px 14px;font-size:13px;width:auto;border-radius:6px}
+.action-row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}.action-row .btn{flex:1;min-width:160px}
+table{width:100%;border-collapse:collapse;min-width:700px;font-size:13px}
+thead{background:#0F5B5C;color:white}
+th,td{padding:10px 12px;text-align:left;border:1px solid #E5E7EB}
+th{font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.3px}
+tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
+.count-badge{background:#E8F4F4;color:#0F5B5C;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700;margin-left:8px}
+.instructions{background:#E0F2FE;border:1px solid #BAE6FD;padding:18px;border-radius:10px;margin-bottom:20px}
+.instructions h3{color:#075985;margin-bottom:10px;font-size:14px}
+.instructions ol{padding-left:18px;color:#075985;font-size:13px}
+.instructions li{margin-bottom:5px}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1F2937;color:white;padding:10px 24px;border-radius:30px;font-size:13px;font-weight:500;z-index:300;opacity:0;transition:.3s;pointer-events:none}
+.toast.show{opacity:1}
+.sent-list{background:#D1FAE5;border:1px solid #A7F3D0;border-radius:10px;padding:16px;margin-bottom:16px}
+.sent-list h3{font-size:14px;color:#065F46;margin-bottom:10px}
+.sent-item{background:white;border-radius:8px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;border:1px solid #A7F3D0}
+.day-preview{margin-top:8px;font-size:14px;letter-spacing:1px;color:#374151}
+.day-preview span{margin-right:10px}
+@media(max-width:600px){.row2{grid-template-columns:1fr}.action-row{flex-direction:column}.action-row .btn{min-width:100%}}
+</style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h1>📋 Participant Registration</h1>
-                <div id="networkStatus" class="network-status">
-                    <span id="statusIcon"></span>
-                    <span id="statusText"></span>
-                </div>
-            </div>
-            <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; border-left: 4px solid #007bff; margin-bottom: 15px;">
-                <h2 style="color: #004085; font-size: 20px; margin: 0 0 5px 0;">{{ activity_name }}</h2>
-                <p style="color: #004085; margin: 0; font-size: 16px; font-weight: 500;">{{ activity_dates }}</p>
-            </div>
-            <p>Enter participant details for registration and mobile money enrollment</p>
-        </div>
+<div class="container">
 
-        <!-- Alerts -->
-        <div id="successAlert" class="alert alert-success"></div>
-        <div id="errorAlert" class="alert alert-error"></div>
+<div class="header">
+ <div class="logo-row">
+  <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2ZmZiIgcng9IjEyIi8+PHRleHQgeD0iNTAiIHk9IjM4IiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtc2l6ZT0iMTgiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjMEY1QjVDIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5DSEFJPC90ZXh0Pjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iOCIgZmlsbD0iIzZCNzI4MCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Q2xpbnRvbiBIZWFsdGg8L3RleHQ+PHRleHQgeD0iNTAiIHk9IjY1IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSI4IiBmaWxsPSIjNkI3MjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5BY2Nlc3MgSW5pdGlhdGl2ZTwvdGV4dD48L3N2Zz4=" alt="CHAI">
+  <div>
+   <div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.5px">Field Operations</div>
+   <h1>{{ activity_name }}</h1>
+  </div>
+ </div>
+ <p>{{ activity_dates }} &middot; CHAI Uganda</p>
+ <div class="net-badge on" id="netBadge"><span>&#9679;</span> <span>Online</span></div>
+</div>
 
-        <!-- Registration Form -->
-        <div class="form-card">
-            <h2>Enter Participant Information</h2>
-            
-            <form id="participantForm">
-                <div class="form-group">
-                    <label>Participant's Name <span class="required">*</span></label>
-                    <input type="text" id="participantName" placeholder="Enter full name">
-                    <span class="error-message" id="errorParticipantName">This field is required</span>
-                </div>
+<div id="fAlert" class="alert"></div>
 
-                <div class="form-group">
-                    <label>Cadre <span class="required">*</span></label>
-                    <input type="text" id="cadre" placeholder="e.g., Nurse, Doctor, CHW">
-                    <span class="error-message" id="errorCadre">This field is required</span>
-                </div>
+<div id="fSentList" class="h">
+ <div class="sent-list">
+  <h3>&#9989; Sent Submissions</h3>
+  <div id="fSentItems"></div>
+ </div>
+</div>
 
-                <div class="form-group">
-                    <label>District <span class="required">*</span></label>
-                    <select id="district" required>
-                        <option value="">-- Select District --</option>
-                    </select>
-                    <span class="error-message" id="errorDistrict">This field is required</span>
-                </div>
+<div class="card teal-border">
+ <h2>Enter Participant Information</h2>
+ <div class="fg"><label>Participant's Name <span class="req">*</span></label><input type="text" id="fName" placeholder="Enter full name"></div>
+ <div class="fg"><label>Cadre <span class="req">*</span></label><input type="text" id="fCadre" placeholder="e.g. Nurse, Midwife, CHW"></div>
+ <div class="row2">
+  <div class="fg"><label>District <span class="req">*</span></label><input type="text" id="fDistrict" list="distList" placeholder="Select district" autocomplete="off">
+  <datalist id="distList">
+   <option value="Abim District"><option value="Adjumani District"><option value="Agago District"><option value="Alebtong District"><option value="Amolatar District"><option value="Amudat District"><option value="Amuria District"><option value="Amuru District"><option value="Apac District"><option value="Arua City District"><option value="Arua District"><option value="Budaka District"><option value="Bududa District"><option value="Bugiri District"><option value="Bugweri District"><option value="Buhweju District"><option value="Buikwe District"><option value="Bukedea District"><option value="Bukomansimbi District"><option value="Bukwo District"><option value="Bulambuli District"><option value="Buliisa District"><option value="Bundibugyo District"><option value="Bunyangabu District"><option value="Bushenyi District"><option value="Busia District"><option value="Butaleja District"><option value="Butambala District"><option value="Butebo District"><option value="Buvuma District"><option value="Buyende District"><option value="Dokolo District"><option value="Fort Portal City District"><option value="Gomba District"><option value="Gulu City District"><option value="Gulu District"><option value="Hoima City District"><option value="Hoima District"><option value="Ibanda District"><option value="Iganga District"><option value="Isingiro District"><option value="Jinja City District"><option value="Jinja District"><option value="Kaabong District"><option value="Kabale District"><option value="Kabarole District"><option value="Kaberamaido District"><option value="Kagadi District"><option value="Kakumiro District"><option value="Kalaki District"><option value="Kalangala District"><option value="Kaliro District"><option value="Kalungu District"><option value="Kampala District"><option value="Kamuli District"><option value="Kamwenge District"><option value="Kanungu District"><option value="Kapchorwa District"><option value="Kapelebyong District"><option value="Karenga District"><option value="Kasese District"><option value="Kassanda District"><option value="Katakwi District"><option value="Kayunga District"><option value="Kazo District"><option value="Kibaale District"><option value="Kiboga District"><option value="Kibuku District"><option value="Kikuube District"><option value="Kiruhura District"><option value="Kiryandongo District"><option value="Kisoro District"><option value="Kitagwenda District"><option value="Kitgum District"><option value="Koboko District"><option value="Kole District"><option value="Kotido District"><option value="Kumi District"><option value="Kwania District"><option value="Kween District"><option value="Kyankwanzi District"><option value="Kyegegwa District"><option value="Kyenjojo District"><option value="Kyotera District"><option value="Lamwo District"><option value="Lira City District"><option value="Lira District"><option value="Luuka District"><option value="Luwero District"><option value="Lwengo District"><option value="Lyantonde District"><option value="Madi-Okollo District"><option value="Manafwa District"><option value="Maracha District"><option value="Masaka City District"><option value="Masaka District"><option value="Masindi District"><option value="Mayuge District"><option value="Mbale City District"><option value="Mbale District"><option value="Mbarara City District"><option value="Mbarara District"><option value="Mitooma District"><option value="Mityana District"><option value="Moroto District"><option value="Moyo District"><option value="Mpigi District"><option value="Mubende District"><option value="Mukono District"><option value="Nabilatuk District"><option value="Nakapiripirit District"><option value="Nakaseke District"><option value="Nakasongola District"><option value="Namayingo District"><option value="Namisindwa District"><option value="Namutumba District"><option value="Napak District"><option value="Nebbi District"><option value="Ngora District"><option value="Ntoroko District"><option value="Ntungamo District"><option value="Nwoya District"><option value="Obongi District"><option value="Omoro District"><option value="Otuke District"><option value="Oyam District"><option value="Pader District"><option value="Pakwach District"><option value="Pallisa District"><option value="Rakai District"><option value="Rubanda District"><option value="Rubirizi District"><option value="Rukiga District"><option value="Rukungiri District"><option value="Rwampara District"><option value="Sembabule District"><option value="Serere District"><option value="Sheema District"><option value="Sironko District"><option value="Soroti City District"><option value="Soroti District"><option value="Terego District"><option value="Tororo District"><option value="Wakiso District"><option value="Yumbe District"><option value="Zombo District">
+  </datalist></div>
+  <div class="fg"><label>Facility <span class="req">*</span></label><input type="text" id="fFacility" placeholder="Facility name"></div>
+ </div>
+ <div class="fg"><label>Campaign Day Attendance <span class="req">*</span></label>
+  <div class="cb-group" id="fDaysGroup"></div>
+  <div class="day-preview" id="fDayPreview"></div>
+ </div>
+ <div class="fg"><label>Mobile Number Registered <span class="req">*</span></label>
+  <div class="phone-row"><span class="prefix">+256</span><input type="tel" id="fPhone" placeholder="7XXXXXXXX" maxlength="9"></div>
+  <div class="err" id="fPhoneErr">Enter 9 digits starting with 7</div>
+ </div>
+ <div class="fg"><label>Names Registered on Mobile Money (First &amp; Last Names) <span class="req">*</span></label><input type="text" id="fMomoName" placeholder="First and last name as on MoMo"></div>
+ <button class="btn btn-teal" onclick="addFieldP()">&#10133; Add Participant</button>
+</div>
 
-                <div class="form-group">
-                    <label>Health Facility <span class="required">*</span></label>
-                    <select id="dutyStation" required disabled>
-                        <option value="">-- Select District First --</option>
-                    </select>
-                    <input type="text" id="otherFacility" placeholder="Specify facility name" style="display: none; margin-top: 10px; width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px;">
-                    <span class="error-message" id="errorDutyStation">This field is required</span>
-                </div>
+<div id="fTableWrap" class="card h" style="overflow-x:auto">
+ <h2>Registered Participants <span class="count-badge" id="fCount">0</span></h2>
+ <div style="overflow-x:auto"><table><thead><tr id="fTheadRow"></tr></thead><tbody id="fTbody"></tbody></table></div>
+ <div class="action-row">
+  <button class="btn btn-green" onclick="submitAll()">&#128228; Submit to Server</button>
+  <button class="btn btn-gray" onclick="dlFieldXLS()">&#128229; Download Excel</button>
+  <button class="btn" style="background:#EF4444;color:white" onclick="clearField()">&#128465; Clear All</button>
+ </div>
+</div>
 
-                <div class="form-group">
-                    <label>Registration Date <span class="required">*</span></label>
-                    <input type="date" id="registrationDate">
-                    <span class="error-message" id="errorRegistrationDate">This field is required</span>
-                </div>
+<div id="fInstr" class="instructions"><h3>&#128204; Instructions:</h3><ol>
+<li>Fill in all required participant information above</li>
+<li>Select which days the participant attended</li>
+<li>Click "Add Participant" to add them to the list</li>
+<li>Repeat for all participants</li>
+<li>Click "Submit to Server" to send the data</li>
+<li><strong>&#9745; = Attended | &#9744; = Absent</strong></li>
+</ol></div>
 
-                <div class="form-group">
-                    <label>Campaign Day Attendance <span class="required">*</span></label>
-                    <div class="checkbox-group" id="campaignDays">
-                        {% for day in range(1, campaign_days + 1) %}
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="day{{ day }}" value="{{ day }}">
-                            <label for="day{{ day }}">Day {{ day }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <span class="error-message" id="errorCampaignDays">Please select at least one campaign day</span>
-                </div>
+<div style="text-align:center;margin-top:20px;padding:16px">
+ <a href="/" style="color:#6B7280;font-size:12px;text-decoration:none">&larr; Switch Assessment</a>
+</div>
 
-                <div class="form-group">
-                    <label>Mobile Number Registered <span class="required">*</span></label>
-                    <div style="display: flex; align-items: center;">
-                        <span style="background: #f8f9fa; border: 1px solid #ddd; border-right: none; padding: 12px 15px; border-radius: 6px 0 0 6px; color: #666; font-weight: 500;">+256</span>
-                        <input type="tel" id="mobileNumber" placeholder="701234567" style="border-radius: 0 6px 6px 0; border-left: none; flex: 1;">
-                    </div>
-                    <span class="error-message" id="errorMobileNumber">This field is required</span>
-                </div>
+</div>
+<div class="toast" id="toast"></div>
 
-                <div class="form-group">
-                    <label>Names Registered on Mobile Money (First & Last Names) <span class="required">*</span></label>
-                    <input type="text" id="mobileMoneyName" placeholder="Enter first and last name">
-                    <span class="error-message" id="errorMobileMoneyName">This field is required</span>
-                </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const CAMPAIGN_DAYS = {{ campaign_days }};
+const ASSESSMENT_ID = {{ assessment.id }};
+const SK = 'chai_field_' + ASSESSMENT_ID;
+let participants = JSON.parse(localStorage.getItem(SK) || '[]');
+let sentList = JSON.parse(localStorage.getItem(SK + '_sent') || '[]');
 
-                <button type="submit" class="btn btn-primary">
-                    ➕ Add Participant
-                </button>
-            </form>
+function save(){localStorage.setItem(SK, JSON.stringify(participants))}
+function saveSent(){localStorage.setItem(SK + '_sent', JSON.stringify(sentList))}
+function ord(n){const s=['','1st','2nd','3rd','4th','5th'];return s[n]||n+'th'}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+function showAlert(msg,type){const el=document.getElementById('fAlert');el.className='alert alert-'+type;el.innerHTML=msg;el.style.display='block';setTimeout(()=>el.style.display='none',5000)}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 
-            <!-- Pending Participants by Facility -->
-            <div id="pendingParticipants" class="pending-participants" style="display: none;">
-                <h2 style="color: #1F4E78; margin-top: 30px; margin-bottom: 20px;">📋 Pending Participants (Grouped by Facility)</h2>
-                <div id="facilityGroups"></div>
-            </div>
+function updNet(){
+  const on=navigator.onLine;const el=document.getElementById('netBadge');
+  el.className='net-badge '+(on?'on':'off');
+  el.innerHTML='<span>&#9679;</span> <span>'+(on?'Online':'Offline')+'</span>';
+}
+window.addEventListener('online',updNet);window.addEventListener('offline',updNet);
 
-            <!-- Recent Submissions Section (24 hour view) - NOW BELOW SUBMIT BUTTON -->
-            <div id="recentSubmissions" class="recent-submissions" style="display: none;">
-                <h3>Health Centers Worked On (Last 24 Hours)</h3>
-                <div id="submissionsList"></div>
-            </div>
+function buildDayCheckboxes(){
+  const g=document.getElementById('fDaysGroup');let h='';
+  for(let i=1;i<=CAMPAIGN_DAYS;i++) h+='<div class="cb-item"><input type="checkbox" id="fd'+i+'" value="'+i+'" onchange="updDayPreview()"><label for="fd'+i+'">'+ord(i)+'</label></div>';
+  g.innerHTML=h;updDayPreview();buildTableHeaders();
+}
+function updDayPreview(){
+  const el=document.getElementById('fDayPreview');let h='';
+  for(let i=1;i<=CAMPAIGN_DAYS;i++){const cb=document.getElementById('fd'+i);const c=cb&&cb.checked;h+='<span style="'+(c?'color:#059669;font-weight:700':'color:#D1D5DB')+'">'+(c?'\u2611':'\u2610')+' '+ord(i)+'</span>';}
+  el.innerHTML=h;
+}
+function buildTableHeaders(){
+  const tr=document.getElementById('fTheadRow');
+  let h='<th>No.</th><th>Name</th><th>Cadre</th><th>Facility</th><th>District</th><th>Phone</th><th>MoMo Names</th>';
+  for(let i=1;i<=CAMPAIGN_DAYS;i++) h+='<th>'+ord(i)+'</th>';
+  h+='<th>Action</th>';tr.innerHTML=h;
+}
+function validatePhone(v){return /^7\d{8}$/.test(v.replace(/\s/g,''))}
 
-            <!-- Instructions Section - NOW AT THE BOTTOM -->
-            <div class="instructions">
-                <h3>📌 Instructions:</h3>
-                <ol>
-                    <li>Fill in all required participant information above</li>
-                    <li>Select campaign day attendance (at least one day must be selected)</li>
-                    <li>Click "➕ Add Participant" to add to the list (participants are grouped by facility)</li>
-                    <li>Repeat for all participants from the same facility</li>
-                    <li>When ready, click "Submit All to CHAI" for each facility group</li>
-                    <li>Data will automatically download to your device after submission</li>
-                    <li>Health centers you've worked on appear in "Recent Submissions" for 24 hours</li>
-                </ol>
-            </div>
+function addFieldP(){
+  const nm=document.getElementById('fName').value.trim(),cd=document.getElementById('fCadre').value.trim(),
+  dist=document.getElementById('fDistrict').value.trim(),fac=document.getElementById('fFacility').value.trim(),
+  ph=document.getElementById('fPhone').value.trim(),momo=document.getElementById('fMomoName').value.trim();
+  if(!nm||!cd||!dist||!fac||!ph||!momo){showAlert('Please fill all required fields','error');return}
+  if(!validatePhone(ph)){document.getElementById('fPhoneErr').style.display='block';return}
+  document.getElementById('fPhoneErr').style.display='none';
+  let days=[];for(let i=1;i<=CAMPAIGN_DAYS;i++){if(document.getElementById('fd'+i)&&document.getElementById('fd'+i).checked)days.push(i)}
+  if(!days.length){showAlert('Please select at least one attendance day','error');return}
+  const att={};for(let i=1;i<=CAMPAIGN_DAYS;i++) att[i]=days.includes(i);
+  participants.push({nm,cd,dist,fac,ph:'+256'+ph,momo,att,ts:Date.now(),regDate:new Date().toISOString().slice(0,10)});
+  save();updFieldTable();
+  ['fName','fCadre','fFacility','fPhone','fMomoName'].forEach(id=>document.getElementById(id).value='');
+  for(let i=1;i<=CAMPAIGN_DAYS;i++){const cb=document.getElementById('fd'+i);if(cb)cb.checked=false}
+  updDayPreview();showAlert('\u2705 Participant added!','success');
+}
+function delFieldP(i){if(confirm('Delete?')){participants.splice(i,1);save();updFieldTable()}}
 
-            <div class="admin-link">
-                <small>Admin? <a href="/admin/login">Login here</a></small>
-            </div>
-        </div>
-    </div>
+function updFieldTable(){
+  const tb=document.getElementById('fTbody');tb.innerHTML='';
+  participants.forEach((p,i)=>{
+    let dc='';for(let d=1;d<=CAMPAIGN_DAYS;d++){const c=p.att[d];dc+='<td style="text-align:center;font-size:18px;'+(c?'color:#059669':'color:#D1D5DB')+'">'+(c?'\u2611':'\u2610')+'</td>';}
+    tb.innerHTML+='<tr><td style="text-align:center">'+(i+1)+'</td><td>'+esc(p.nm)+'</td><td>'+esc(p.cd)+'</td><td>'+esc(p.fac)+'</td><td>'+esc(p.dist)+'</td><td>'+esc(p.ph)+'</td><td>'+esc(p.momo)+'</td>'+dc+'<td><button class="btn-red" onclick="delFieldP('+i+')">Delete</button></td></tr>';
+  });
+  document.getElementById('fCount').textContent=participants.length;
+  document.getElementById('fTableWrap').classList.toggle('h',!participants.length);
+  document.getElementById('fInstr').style.display=participants.length?'none':'block';
+}
+function clearField(){if(!participants.length)return;if(confirm('Clear all?')){participants=[];save();updFieldTable();showAlert('Cleared','success')}}
 
-    <script>
-        // District to Health Facilities mapping
-        const districtFacilities = {
-            'Zombo': ['Warr HCIV', 'Holy Family Hospital - Nyapea'],
-            'Terego': ['Yinga HCIII'],
-            'Arua': ['Arua RRH', 'Arua Police HC III'],
-            'Madi Okollo': ['Rhinocamp HCIV'],
-            'Nebbi': ['Goli HCIV', 'Nebbi General Hospital'],
-            'Maracha': ['St. Joseph - Maracha Hospital'],
-            'Koboko': ['Koboko General Hospital'],
-            'Yumbe': ['Midigo HCIV', 'Yumbe RRH'],
-            'Obongi': ['Obongi HCIV'],
-            'Moyo': ['Moyo General Hospital'],
-            'Adjumani': ['Mungula HCIV', 'Adjumani Mission HC III'],
-            'Kampala': ['Kisenyi HCIV', 'Uganda Cancer Institute', 'Mengo Hospital', 'Uganda Heart Institute', 'Mulago NRH', 'Butabika NRH', 'Kawempe NRH', 'Entebbe RRH'],
-            'Kamwenge': ['Rukunyu Hospital'],
-            'Kabarole': ['Kibiito HCIV', 'Virika Hospital', 'Katojo Main Prison'],
-            'Fortportal': ['Fortportal RRH'],
-            'Kyenjojo': ['Kyarusozi HCIII', 'Kyenjojo Hospital'],
-            'Kyegegwa': ['Kyegegwa HCIV'],
-            'Gulu': ['Gulu RRH', '4th Division Military Hospital - Gulu'],
-            'Amuru': ['Lacor-Pabbo HC III'],
-            'Nwoya': ['Anaka GH'],
-            'Omoro': ['Lalogi HCIV'],
-            'Kitgum': ['Kitgum General Hospital', 'St. Joseph Hospital - Kitgum'],
-            'Lamwo': ['Madi Opei HCIV'],
-            'Hoima': ['Hoima Police HC II', 'Azur HCIV', 'Hoima RRH'],
-            'Masindi': ['Masindi General Hospital', 'Bwijanga HCIV'],
-            'Buliisa': ['Biiso HCIV'],
-            'Kikuube': ['Kikuube HCIV'],
-            'Kagadi': ['St. Ambrose Charity HC IV'],
-            'Busia': ['Masafu Hospital'],
-            'Iganga': ['Iganga General Hospital', 'Bugono HCIV'],
-            'Namutumba': ['Namutumba HCIII'],
-            'Jinja': ['AIDS Information Centre Special Clinic', 'Jinja RRH', 'Jinja Main Prison'],
-            'Kamuli': ['Kamuli General Hospital'],
-            'Rukungiri': ['Kisiizi COU Hospital', 'St. Karoli  Lwanga - Nyakibale Hospital', 'Rukungiri Police HC II'],
-            'Kanungu': ['Kihihi HCIV', 'Kambuga Hospital'],
-            'Rukiga': ['Mparo HCIV'],
-            'Kabale': ['Kamuganguzi HCIII', 'Kabale RRH'],
-            'Kayunga': ['Kayunga RRH', 'Galiraya HCIII'],
-            'Mukono': ['Mukono General Hospital', 'St. Francis Naggalama Hospital'],
-            'Luweero': ['Bombo Military Hospital', 'Luweero General Hospital'],
-            'Buvuma': ['Buvuma HCIV'],
-            'Nakasongola': ['Nakasongola HCIV'],
-            'Lira City': ['Lira RRH'],
-            'Lira': ['Amach HCIV'],
-            'Alebtong': ['Apala HCIII'],
-            'Otuke': ['Orum HCIV'],
-            'Apac': ['Apac Hospital'],
-            'Amolatar': ['Amai Community  Hospital'],
-            'Dokolo': ['Dokolo HCIV'],
-            'Oyam': ['Anyeke HCIV'],
-            'Mpigi': ['Mpigi HCIV'],
-            'Butambala': ['Gombe Hospital'],
-            'Gomba': ['Maddu HCIV'],
-            'Ssembabule': ['Ssembabule HCIV'],
-            'Kalungu': ['Villa Maria Hospital', 'Lukaya Health Care Services'],
-            'Masaka': ['Masaka Police HC III', 'Masaka RRH'],
-            'Sironko': ['Sironko Medical Centre HC III'],
-            'Bulambuli': ['Muyembe HC IV'],
-            'Kapchorwa': ['Kapchorwa Hospital'],
-            'Kween': ['Kaproron HC IV'],
-            'Mbale District': ['Busiu HC IV'],
-            'Mbale City': ['Mbale RRH', 'Mbale Police HC III'],
-            'Tororo': ['St. Anthony\'s Tororo Hospital'],
-            'Mbarara': ['2nd Division HCIV - Makenke', 'Mbarara Regional Referral Hospital'],
-            'Rwampara': ['Kinoni HCIV'],
-            'Kazo': ['Kazo HCIV'],
-            'Kiruhura': ['Rushere Community Hospital'],
-            'Isingiro': ['Kabuyanda HCIII', 'Nakivale HCIII'],
-            'Ibanda': ['Ruhoko Hospital'],
-            'Amudat': ['Amudat Hospital'],
-            'Nakapiripirit': ['Tokora HCIV'],
-            'Napak': ['Matany Hospital'],
-            'Moroto': ['Moroto RRH', 'Moroto Main Prison HCIII'],
-            'Kaabong': ['Kaabong Hospital'],
-            'Kotido': ['Kotido Hospital'],
-            'Abim': ['Abim Hospital'],
-            'Kassanda': ['St. Joseph Madudu HC III', 'Kassanda HCIV'],
-            'Mubende': ['Mubende RRH', 'Anbar Hospital', 'Kabamba Barracks HC III'],
-            'Mityana': ['Mityana Hospital'],
-            'Kiboga': ['Kiboga Hospital'],
-            'Kyankwanzi': ['Ntwetwe HCIV'],
-            'Amuria': ['Amuria Hospital'],
-            'Katakwi': ['Katakwi Hospital'],
-            'Serere': ['Serere HCIV'],
-            'Ngora': ['Ngora HCIV'],
-            'Bukedea': ['Bukedea HCIV'],
-            'Kumi': ['Kumi - Ongino Hospital'],
-            'Soroti': ['Soroti RRH', 'Soroti Police HC III']
-        };
+async function submitAll(){
+  if(!participants.length){toast('Add participants first');return}
+  if(!navigator.onLine){toast('You are offline');return}
+  const payload=participants.map(p=>({participant_name:p.nm,cadre:p.cd,district:p.dist,facility:p.fac,registration_date:p.regDate,day1:!!p.att[1],day2:!!p.att[2],day3:!!p.att[3],day4:!!p.att[4],day5:!!p.att[5],mobile_number:p.ph,mm_registered_names:p.momo}));
+  try{
+    const r=await fetch('/submit/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participants:payload,assessment_id:ASSESSMENT_ID})});
+    const d=await r.json();
+    if(d.success){
+      sentList.push({dist:participants[0]?.dist||'',fac:participants[0]?.fac||'',count:participants.length,ts:Date.now()});saveSent();
+      if(participants[0]?.fac) window.open('/download/facility/'+ASSESSMENT_ID+'/'+encodeURIComponent(participants[0].fac),'_blank');
+      participants=[];save();updFieldTable();updSentList();showAlert('\u2705 '+d.count+' participants submitted!','success');
+    } else showAlert('Error: '+(d.error||'Unknown'),'error');
+  }catch(e){showAlert('Network error','error')}
+}
 
-        // Store pending participants grouped by facility
-        let pendingParticipants = {};
+function dlFieldXLS(){
+  if(!participants.length){toast('Add participants first');return}
+  const wb=XLSX.utils.book_new();
+  const hdr=['No.',"Participant\u2019s Name",'Cadre','Duty Station','District','Mobile Number Registered','Names Registered (First & Last Names)'];
+  for(let d=1;d<=CAMPAIGN_DAYS;d++) hdr.push(ord(d));
+  const rows=[hdr];
+  participants.forEach((p,i)=>{const row=[i+1,p.nm,p.cd,p.fac,p.dist,p.ph,p.momo];for(let d=1;d<=CAMPAIGN_DAYS;d++) row.push(p.att[d]?'\u2611':'\u2610');rows.push(row)});
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:5},{wch:25},{wch:16},{wch:21},{wch:16},{wch:21},{wch:30}];
+  for(let d=0;d<CAMPAIGN_DAYS;d++) ws['!cols'].push({wch:8});
+  XLSX.utils.book_append_sheet(wb,ws,'Registration & Attendance');
+  XLSX.writeFile(wb,'CHAI_Registration_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  showAlert('\u2705 Excel downloaded!','success');
+}
 
-        // Network status monitoring
-        let networkStatus = navigator.onLine;
+function updSentList(){
+  const el=document.getElementById('fSentItems'),wrap=document.getElementById('fSentList');
+  if(!sentList.length){wrap.classList.add('h');return}
+  wrap.classList.remove('h');let h='';
+  sentList.forEach(s=>{h+='<div class="sent-item"><div><div style="font-size:13px;font-weight:600;color:#065F46">'+esc(s.dist)+' \u2014 '+esc(s.fac)+'</div><div style="font-size:11px;color:#6B7280">'+s.count+' participants \u00b7 '+new Date(s.ts).toLocaleDateString()+'</div></div><span style="font-size:10px;background:#D1FAE5;color:#059669;padding:2px 8px;border-radius:20px;font-weight:700">SENT</span></div>'});
+  el.innerHTML=h;
+}
 
-        function updateNetworkStatus() {
-            networkStatus = navigator.onLine;
-            const statusIcon = document.getElementById('statusIcon');
-            const statusText = document.getElementById('statusText');
-            const statusDiv = document.getElementById('networkStatus');
-            
-            if (networkStatus) {
-                statusDiv.className = 'network-status network-online';
-                statusIcon.textContent = '🟢';
-                statusText.textContent = 'Online';
-            } else {
-                statusDiv.className = 'network-status network-offline';
-                statusIcon.textContent = '🔴';
-                statusText.textContent = 'Offline';
-            }
-        }
+document.getElementById('fPhone').addEventListener('input',function(e){let v=e.target.value;if(v.startsWith('0'))e.target.value=v.substring(1);if(v.length>9)e.target.value=v.substring(0,9)});
 
-        window.addEventListener('online', updateNetworkStatus);
-        window.addEventListener('offline', updateNetworkStatus);
-        updateNetworkStatus();
-
-        // Set today's date as default and initialize district/facility dropdowns
-        document.addEventListener('DOMContentLoaded', function() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('registrationDate').value = today;
-            
-            // Populate district dropdown
-            const districtSelect = document.getElementById('district');
-            if (districtSelect) {
-                // Clear existing options except the first one
-                while (districtSelect.options.length > 1) {
-                    districtSelect.remove(1);
-                }
-                
-                const districts = Object.keys(districtFacilities).sort();
-                districts.forEach(district => {
-                    const option = document.createElement('option');
-                    option.value = district;
-                    option.textContent = district;
-                    districtSelect.appendChild(option);
-                });
-                
-                // Add event listener for district change
-                districtSelect.addEventListener('change', function() {
-                    updateFacilityDropdown(this.value);
-                });
-            }
-            
-            // Handle "Other" facility selection (only add listener once)
-            const facilitySelectEl = document.getElementById('dutyStation');
-            const otherFacilityInputEl = document.getElementById('otherFacility');
-            
-            if (facilitySelectEl && !facilitySelectEl.hasAttribute('data-listener-added')) {
-                facilitySelectEl.setAttribute('data-listener-added', 'true');
-                facilitySelectEl.addEventListener('change', function() {
-                    if (this.value === 'Other') {
-                        otherFacilityInputEl.style.display = 'block';
-                        otherFacilityInputEl.required = true;
-                    } else {
-                        otherFacilityInputEl.style.display = 'none';
-                        otherFacilityInputEl.required = false;
-                        otherFacilityInputEl.value = '';
-                    }
-                });
-            }
-            
-            displayRecentSubmissions();
-            loadPendingParticipants();
-            renderPendingParticipants();
-        });
-
-        // Update facility dropdown based on selected district
-        function updateFacilityDropdown(selectedDistrict) {
-            const facilitySelect = document.getElementById('dutyStation');
-            const otherFacilityInput = document.getElementById('otherFacility');
-            facilitySelect.innerHTML = '<option value="">-- Select Health Facility --</option>';
-            otherFacilityInput.style.display = 'none';
-            otherFacilityInput.value = '';
-            
-            if (selectedDistrict && districtFacilities[selectedDistrict]) {
-                facilitySelect.disabled = false;
-                const facilities = districtFacilities[selectedDistrict].sort();
-                facilities.forEach(facility => {
-                    const option = document.createElement('option');
-                    option.value = facility;
-                    option.textContent = facility;
-                    facilitySelect.appendChild(option);
-                });
-                
-                // Add "District Health office" option
-                const dhoOption = document.createElement('option');
-                dhoOption.value = 'District Health office';
-                dhoOption.textContent = 'District Health office';
-                facilitySelect.appendChild(dhoOption);
-                
-                // Add "Other" option
-                const otherOption = document.createElement('option');
-                otherOption.value = 'Other';
-                otherOption.textContent = 'Other';
-                facilitySelect.appendChild(otherOption);
-            } else {
-                facilitySelect.disabled = true;
-                facilitySelect.innerHTML = '<option value="">-- Select District First --</option>';
-            }
-        }
-        
-
-        // Load pending participants from localStorage
-        function loadPendingParticipants() {
-            try {
-                const stored = localStorage.getItem('pendingParticipants');
-                if (stored) {
-                    pendingParticipants = JSON.parse(stored);
-                }
-            } catch (e) {
-                console.error('Error loading pending participants:', e);
-                pendingParticipants = {};
-            }
-        }
-
-        // Save pending participants to localStorage
-        function savePendingParticipants() {
-            try {
-                localStorage.setItem('pendingParticipants', JSON.stringify(pendingParticipants));
-            } catch (e) {
-                console.error('Error saving pending participants:', e);
-            }
-        }
-
-        // Add participant to pending list
-        function addPendingParticipant(participant) {
-            const facility = participant.facility;
-            if (!pendingParticipants[facility]) {
-                pendingParticipants[facility] = [];
-            }
-            // Add unique ID to participant
-            participant.id = Date.now() + Math.random();
-            pendingParticipants[facility].push(participant);
-            savePendingParticipants();
-            renderPendingParticipants();
-        }
-
-        // Remove participant from pending list (global function for onclick)
-        window.removePendingParticipant = function(facility, participantId) {
-            if (pendingParticipants[facility]) {
-                pendingParticipants[facility] = pendingParticipants[facility].filter(
-                    p => p.id !== participantId
-                );
-                if (pendingParticipants[facility].length === 0) {
-                    delete pendingParticipants[facility];
-                }
-                savePendingParticipants();
-                renderPendingParticipants();
-            }
-        };
-
-        // Render pending participants grouped by facility
-        function renderPendingParticipants() {
-            const container = document.getElementById('pendingParticipants');
-            const groupsContainer = document.getElementById('facilityGroups');
-            
-            const facilities = Object.keys(pendingParticipants);
-            
-            if (facilities.length === 0) {
-                container.style.display = 'none';
-                return;
-            }
-            
-            container.style.display = 'block';
-            groupsContainer.innerHTML = '';
-            
-            facilities.forEach(facility => {
-                const participants = pendingParticipants[facility];
-                const groupDiv = document.createElement('div');
-                groupDiv.className = 'facility-group';
-                
-                groupDiv.innerHTML = `
-                    <div class="facility-header">
-                        <h3>🏥 ${facility}</h3>
-                        <span class="facility-count">${participants.length} participant${participants.length !== 1 ? 's' : ''}</span>
-                    </div>
-                    <div class="participant-list">
-                        ${participants.map((p, idx) => `
-                            <div class="participant-item">
-                                <div class="participant-info">
-                                    <strong>${p.participant_name}</strong>
-                                    <small>${p.cadre} | ${p.district} | ${p.mobile_number}</small>
-                                    <small>Days: ${Object.keys(p).filter(k => k.startsWith('day') && p[k]).map(k => k.replace('day', 'Day ')).join(', ') || 'None'}</small>
-                                </div>
-                                <button class="remove-participant" onclick="removePendingParticipant('${facility}', ${p.id})">
-                                    Remove
-                                </button>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <button class="btn-submit-facility" onclick="submitFacility('${facility}')" id="submitBtn_${facility.replace(/\s+/g, '_')}">
-                        📤 Submit All to CHAI (${participants.length} participant${participants.length !== 1 ? 's' : ''})
-                    </button>
-                `;
-                
-                groupsContainer.appendChild(groupDiv);
-            });
-        }
-
-        // Submit all participants from a facility (global function for onclick)
-        window.submitFacility = async function(facility) {
-            const participants = pendingParticipants[facility];
-            if (!participants || participants.length === 0) {
-                showAlert('No participants to submit for this facility.', 'error');
-                return;
-            }
-            
-            const submitBtn = document.getElementById(`submitBtn_${facility.replace(/\s+/g, '_')}`);
-            submitBtn.disabled = true;
-            submitBtn.textContent = '⏳ Submitting to CHAI...';
-            
-            try {
-                const response = await fetch('/submit/bulk', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ participants: participants })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    // Store facility submission locally for 24 hour tracking (not individual participants)
-                    try {
-                        const facilitySubmission = {
-                            facility: facility,
-                            district: participants[0].district,
-                            participant_count: result.count,
-                            submitted_at: new Date().toISOString()
-                        };
-                        const submissionKey = `facility_submission:${facility}:${Date.now()}`;
-                        localStorage.setItem(submissionKey, JSON.stringify(facilitySubmission));
-                    } catch (storageError) {
-                        console.error('Storage error:', storageError);
-                    }
-                    
-                    // Remove submitted participants from pending list
-                    delete pendingParticipants[facility];
-                    savePendingParticipants();
-                    renderPendingParticipants();
-                    
-                    showAlert(`✅ Successfully submitted ${result.count} participant(s) from ${facility} to CHAI!`, 'success');
-                    
-                    // Trigger automatic download
-                    setTimeout(() => {
-                        downloadFacilityData(facility);
-                    }, 500);
-                    
-                    displayRecentSubmissions();
-                } else {
-                    showAlert('❌ Error: ' + result.error, 'error');
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = `📤 Submit All to CHAI (${participants.length} participant${participants.length !== 1 ? 's' : ''})`;
-                }
-            } catch (error) {
-                showAlert('❌ Network error. Please check your connection and try again.', 'error');
-                submitBtn.disabled = false;
-                submitBtn.textContent = `📤 Submit All to CHAI (${participants.length} participant${participants.length !== 1 ? 's' : ''})`;
-            }
-        };
-
-        // Download facility data
-        function downloadFacilityData(facility) {
-            try {
-                // Encode facility name for URL
-                const encodedFacility = encodeURIComponent(facility);
-                const downloadUrl = `/download/facility/${encodedFacility}`;
-                
-                // Create a temporary link and trigger download
-                const link = document.createElement('a');
-                link.href = downloadUrl;
-                link.download = `${facility}_registrations.xlsx`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                showAlert(`📥 Downloading data for ${facility}...`, 'success');
-            } catch (error) {
-                console.error('Download error:', error);
-                showAlert('⚠️ Data submitted successfully, but automatic download failed. You can download it from the admin dashboard.', 'error');
-            }
-        }
-
-        // Display recent submissions (last 24 hours) - showing only facilities
-        function displayRecentSubmissions() {
-            try {
-                const facilitySubmissions = [];
-                const now = new Date().getTime();
-                const twentyFourHours = 24 * 60 * 60 * 1000;
-                const facilityMap = new Map(); // To group by facility and get latest submission
-
-                // Clean up old individual submission entries (legacy)
-                for (let i = localStorage.length - 1; i >= 0; i--) {
-                    const key = localStorage.key(i);
-                    if (key && key.startsWith('submission:') && !key.startsWith('facility_submission:')) {
-                        localStorage.removeItem(key);
-                    }
-                }
-
-                // Get all keys from localStorage that start with 'facility_submission:'
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key && key.startsWith('facility_submission:')) {
-                        try {
-                            const value = localStorage.getItem(key);
-                            if (value) {
-                                const submission = JSON.parse(value);
-                                const submittedTime = new Date(submission.submitted_at).getTime();
-                                
-                                // Check if within 24 hours
-                                if (now - submittedTime <= twentyFourHours) {
-                                    const facility = submission.facility;
-                                    // Keep only the most recent submission for each facility
-                                    if (!facilityMap.has(facility) || 
-                                        new Date(submission.submitted_at) > new Date(facilityMap.get(facility).submitted_at)) {
-                                        facilityMap.set(facility, submission);
-                                    }
-                                } else {
-                                    // Delete old submissions
-                                    localStorage.removeItem(key);
-                                }
-                            }
-                        } catch (e) {
-                            console.error('Error processing submission:', e);
-                            localStorage.removeItem(key);
-                        }
-                    }
-                }
-
-                // Convert map to array and sort by submission time (newest first)
-                facilitySubmissions.push(...facilityMap.values());
-                facilitySubmissions.sort((a, b) => 
-                    new Date(b.submitted_at) - new Date(a.submitted_at)
-                );
-
-                if (facilitySubmissions.length > 0) {
-                    const submissionsList = document.getElementById('submissionsList');
-                    submissionsList.innerHTML = facilitySubmissions.map(sub => `
-                        <div class="submission-item">
-                            <div class="check-icon">✓</div>
-                            <div class="content">
-                                <strong>🏥 ${sub.facility}</strong>
-                                <small>${sub.district} | ${sub.participant_count} participant${sub.participant_count !== 1 ? 's' : ''} submitted</small>
-                                <small>Submitted: ${new Date(sub.submitted_at).toLocaleString()}</small>
-                            </div>
-                        </div>
-                    `).join('');
-                    
-                    document.getElementById('recentSubmissions').style.display = 'block';
-                } else {
-                    document.getElementById('recentSubmissions').style.display = 'none';
-                }
-            } catch (error) {
-                console.error('Error displaying recent submissions:', error);
-            }
-        }
-
-        function showAlert(message, type) {
-            const alertId = type === 'success' ? 'successAlert' : 'errorAlert';
-            const alertElement = document.getElementById(alertId);
-            alertElement.innerHTML = message.replace(/\n/g, '<br>');
-            alertElement.style.display = 'block';
-            
-            setTimeout(() => {
-                alertElement.style.display = 'none';
-            }, 5000);
-        }
-
-        function validatePhoneNumber(phone) {
-            const pattern = /^7\d{8}$/;
-            const cleanPhone = phone.replace(/\s/g, '');
-            if (cleanPhone.startsWith('0')) {
-                return false;
-            }
-            return pattern.test(cleanPhone);
-        }
-
-        function validateForm() {
-            let isValid = true;
-            const fields = ['participantName', 'cadre', 'dutyStation', 'district', 'mobileNumber', 'mobileMoneyName', 'registrationDate'];
-            
-            fields.forEach(field => {
-                const input = document.getElementById(field);
-                const errorField = field.charAt(0).toUpperCase() + field.slice(1);
-                const error = document.getElementById('error' + errorField);
-                
-                // For select elements, check if value is empty
-                const isEmpty = input.tagName === 'SELECT' ? !input.value : !input.value.trim();
-                
-                if (isEmpty) {
-                    input.classList.add('error');
-                    error.style.display = 'block';
-                    isValid = false;
-                } else if (field === 'mobileNumber' && !validatePhoneNumber(input.value.trim())) {
-                    input.classList.add('error');
-                    error.textContent = 'Invalid phone format. Enter 9 digits starting with 7 (e.g., 701234567). Do not start with 0.';
-                    error.style.display = 'block';
-                    isValid = false;
-                } else {
-                    input.classList.remove('error');
-                    error.style.display = 'none';
-                }
-            });
-            
-            // Validate "Other" facility input
-            const facilitySelectForValidation = document.getElementById('dutyStation');
-            const otherFacilityInputForValidation = document.getElementById('otherFacility');
-            const facilityError = document.getElementById('errorDutyStation');
-            
-            if (facilitySelectForValidation && facilitySelectForValidation.value === 'Other') {
-                if (!otherFacilityInputForValidation.value.trim()) {
-                    otherFacilityInputForValidation.classList.add('error');
-                    facilityError.textContent = 'Please specify the facility name';
-                    facilityError.style.display = 'block';
-                    isValid = false;
-                } else {
-                    otherFacilityInputForValidation.classList.remove('error');
-                    facilityError.style.display = 'none';
-                }
-            }
-            
-            // Validate campaign days (dynamic based on number of days)
-            const campaignGroup = document.getElementById('campaignDays');
-            const campaignError = document.getElementById('errorCampaignDays');
-            const dayCheckboxes = campaignGroup.querySelectorAll('input[type="checkbox"]');
-            const atLeastOneChecked = Array.from(dayCheckboxes).some(cb => cb.checked);
-            
-            if (!atLeastOneChecked) {
-                campaignGroup.classList.add('error');
-                campaignError.style.display = 'block';
-                isValid = false;
-            } else {
-                campaignGroup.classList.remove('error');
-                campaignError.style.display = 'none';
-            }
-            
-            return isValid;
-        }
-
-        document.getElementById('mobileNumber').addEventListener('input', function(e) {
-            const value = e.target.value;
-            if (value.startsWith('0')) {
-                e.target.value = value.substring(1);
-            }
-            if (value.length > 9) {
-                e.target.value = value.substring(0, 9);
-            }
-        });
-
-        document.getElementById('participantForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            if (!validateForm()) {
-                return;
-            }
-            
-            // Get all day checkboxes dynamically
-            const campaignDays = document.getElementById('campaignDays');
-            const dayCheckboxes = campaignDays.querySelectorAll('input[type="checkbox"]');
-            
-            // Get facility value (use "Other" input if "Other" is selected)
-            const facilitySelectForSubmit = document.getElementById('dutyStation');
-            let facilityValue = facilitySelectForSubmit.value.trim();
-            if (facilityValue === 'Other') {
-                const otherFacilityInputForSubmit = document.getElementById('otherFacility');
-                facilityValue = otherFacilityInputForSubmit.value.trim();
-            }
-            
-            const participant = {
-                participant_name: document.getElementById('participantName').value.trim(),
-                cadre: document.getElementById('cadre').value.trim(),
-                district: document.getElementById('district').value.trim(),
-                facility: facilityValue,
-                registration_date: document.getElementById('registrationDate').value,
-                mobile_number: '+256' + document.getElementById('mobileNumber').value.trim(),
-                mm_registered_names: document.getElementById('mobileMoneyName').value.trim()
-            };
-            
-            // Add day checkboxes dynamically (support up to 7 days)
-            dayCheckboxes.forEach((checkbox, index) => {
-                const dayNum = index + 1;
-                participant[`day${dayNum}`] = checkbox.checked;
-            });
-            
-            // Add to pending participants
-            addPendingParticipant(participant);
-            
-            showAlert('✅ Participant added to list! Continue adding participants from the same facility, then click "Submit All to CHAI" when ready.', 'success');
-            
-            // Reset form but keep district, facility and date
-            const district = participant.district;
-            const facility = participant.facility;
-            const regDate = participant.registration_date;
-            
-            // Store current district selection before reset
-            const currentDistrict = document.getElementById('district').value;
-            
-            this.reset();
-            
-            // Re-populate districts after reset (in case reset cleared them)
-            const districtSelect = document.getElementById('district');
-            if (districtSelect && districtSelect.options.length <= 1) {
-                const districts = Object.keys(districtFacilities).sort();
-                districts.forEach(dist => {
-                    const option = document.createElement('option');
-                    option.value = dist;
-                    option.textContent = dist;
-                    districtSelect.appendChild(option);
-                });
-            }
-            
-            document.getElementById('district').value = district;
-            updateFacilityDropdown(district);
-            
-            // Set facility - check if it's in the dropdown or needs to be set as "Other"
-            const facilitySelectForReset = document.getElementById('dutyStation');
-            const otherFacilityInputForReset = document.getElementById('otherFacility');
-            const options = Array.from(facilitySelectForReset.options).map(opt => opt.value);
-            
-            if (options.includes(facility)) {
-                facilitySelectForReset.value = facility;
-            } else if (facility) {
-                // If facility is not in the list, set as "Other" and fill the input
-                facilitySelectForReset.value = 'Other';
-                otherFacilityInputForReset.value = facility;
-                otherFacilityInputForReset.style.display = 'block';
-            }
-            
-            document.getElementById('registrationDate').value = regDate;
-            
-            // Scroll to pending participants section
-            setTimeout(() => {
-                document.getElementById('pendingParticipants').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }, 300);
-        });
-    </script>
+buildDayCheckboxes();updFieldTable();updSentList();updNet();
+</script>
 </body>
 </html>

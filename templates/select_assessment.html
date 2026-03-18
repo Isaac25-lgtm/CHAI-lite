@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CHAI Uganda - Select Assessment</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#1F2937}
+.wrap{max-width:440px;width:100%;padding:16px}
+.card{background:white;padding:36px 28px;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);text-align:center;border:1px solid #E5E7EB}
+.logo{width:60px;height:60px;background:white;border-radius:14px;border:2px solid #F3F4F6;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.logo img{width:100%;height:100%;object-fit:contain;padding:6px}
+h1{font-family:'Instrument Serif',serif;font-size:24px;color:#0A3D3E;margin-bottom:2px}
+.sub{font-size:12px;color:#9CA3AF;margin-bottom:24px}
+.fg{margin-bottom:16px;text-align:left}
+.fg label{display:block;margin-bottom:5px;color:#374151;font-weight:600;font-size:13px}
+.fg .req{color:#DC2626}
+.fg select,.fg input{width:100%;padding:12px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:15px;font-family:inherit;color:#1F2937;background:white;-webkit-appearance:none}
+.fg select:focus,.fg input:focus{outline:none;border-color:#0F5B5C;box-shadow:0 0 0 3px rgba(15,91,92,.08)}
+.fg input::placeholder{color:#9CA3AF}
+.pin-input{text-align:center;font-size:22px;letter-spacing:8px}
+.btn{padding:14px 24px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;width:100%;background:#0F5B5C;color:white;transition:.15s}
+.btn:hover{background:#178182}
+.btn:active{transform:scale(.98)}
+.flash{padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px;text-align:left}
+.flash-error{background:#FEE2E2;border:1px solid #FECACA;color:#991B1B}
+.flash-success{background:#D1FAE5;border:1px solid #A7F3D0;color:#065F46}
+.flash-warning{background:#FEF3C7;border:1px solid #FDE68A;color:#92400E}
+.back{font-size:12px;color:#9CA3AF;margin-top:14px;display:block;text-decoration:none}
+.no-assess{color:#9CA3AF;font-size:14px;padding:20px 0}
+.assess-info{display:none;background:#E8F4F4;border:1px solid #A7F3D0;border-radius:8px;padding:12px;margin-bottom:16px;text-align:left;font-size:13px}
+.assess-info .ai-name{font-weight:700;color:#0A3D3E;font-size:15px}
+.assess-info .ai-dates{color:#6B7280;margin-top:2px}
+.assess-info .ai-days{color:#0F5B5C;font-weight:600;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="card">
+ <div class="logo"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2ZmZiIgcng9IjEyIi8+PHRleHQgeD0iNTAiIHk9IjM4IiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtc2l6ZT0iMTgiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjMEY1QjVDIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5DSEFJPC90ZXh0Pjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iOCIgZmlsbD0iIzZCNzI4MCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Q2xpbnRvbiBIZWFsdGg8L3RleHQ+PHRleHQgeD0iNTAiIHk9IjY1IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSI4IiBmaWxsPSIjNkI3MjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5BY2Nlc3MgSW5pdGlhdGl2ZTwvdGV4dD48L3N2Zz4=" alt="CHAI"></div>
+ <h1>CHAI Uganda</h1>
+ <p class="sub">Clinton Health Access Initiative &middot; Field Operations</p>
+
+ {% with messages = get_flashed_messages(with_categories=true) %}
+ {% if messages %}
+  {% for category, message in messages %}
+  <div class="flash flash-{{ category }}">{{ message }}</div>
+  {% endfor %}
+ {% endif %}
+ {% endwith %}
+
+ {% if assessments %}
+ <form method="POST" action="{{ url_for('join_assessment') }}">
+  <div class="fg">
+   <label>Select Assessment <span class="req">*</span></label>
+   <select name="assessment_id" id="assessSelect" onchange="showInfo()" required>
+    <option value="">-- Choose your assessment --</option>
+    {% for a in assessments %}
+    <option value="{{ a.id }}" data-name="{{ a.name }}" data-dates="{{ a.dates_label }}" data-days="{{ a.campaign_days }}">{{ a.name }}</option>
+    {% endfor %}
+   </select>
+  </div>
+
+  <div class="assess-info" id="assessInfo">
+   <div class="ai-name" id="aiName"></div>
+   <div class="ai-dates" id="aiDates"></div>
+   <div class="ai-days" id="aiDays"></div>
+  </div>
+
+  <div class="fg">
+   <label>Assessment PIN <span class="req">*</span></label>
+   <input type="password" name="pin" placeholder="&#8226;&#8226;&#8226;&#8226;" maxlength="10" class="pin-input" required>
+  </div>
+
+  <button type="submit" class="btn">Enter</button>
+  <p style="font-size:10px;color:#9CA3AF;margin-top:10px">PIN from your manager</p>
+ </form>
+ {% else %}
+ <div class="no-assess">No active assessments available.<br>Please contact your manager.</div>
+ {% endif %}
+
+ <a href="/admin/login" class="back">Admin Portal</a>
+</div>
+</div>
+
+<script>
+function showInfo(){
+  const sel=document.getElementById('assessSelect');
+  const info=document.getElementById('assessInfo');
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt.value){info.style.display='none';return}
+  document.getElementById('aiName').textContent=opt.dataset.name;
+  document.getElementById('aiDates').textContent=opt.dataset.dates||'';
+  document.getElementById('aiDays').textContent=opt.dataset.days+' campaign day'+(opt.dataset.days>1?'s':'');
+  info.style.display='block';
+}
+</script>
+</body>
+</html>

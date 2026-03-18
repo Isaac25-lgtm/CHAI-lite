@@ -1,218 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Settings</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f6fa;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-            color: white;
-            padding: 20px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .header h1 {
-            font-size: 24px;
-        }
-        
-        .logout-btn {
-            padding: 10px 20px;
-            background: rgba(255,255,255,0.2);
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            transition: background 0.3s;
-        }
-        
-        .logout-btn:hover {
-            background: rgba(255,255,255,0.3);
-        }
-        
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 30px 20px;
-        }
-        
-        .settings-card {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        
-        .settings-card h2 {
-            color: #2c3e50;
-            margin-bottom: 25px;
-            font-size: 22px;
-        }
-        
-        .form-group {
-            margin-bottom: 25px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 10px;
-            color: #333;
-            font-weight: 500;
-            font-size: 15px;
-        }
-        
-        .form-group input[type="number"],
-        .form-group input[type="text"],
-        .form-group select {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            font-size: 15px;
-        }
-        
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .info-box {
-            background: #e7f3ff;
-            padding: 15px;
-            border-radius: 5px;
-            border-left: 4px solid #007bff;
-            margin-top: 15px;
-            font-size: 14px;
-            color: #004085;
-        }
-        
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 5px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-            transition: transform 0.2s;
-        }
-        
-        .btn-primary {
-            background: #28a745;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #218838;
-            transform: translateY(-2px);
-        }
-        
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-            margin-left: 10px;
-        }
-        
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-        
-        .alert {
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHAI Uganda - Settings - {{ assessment.name }}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:#1F2937}
+.container{max-width:700px;margin:0 auto;padding:24px 16px}
+.header{background:linear-gradient(135deg,#0F5B5C,#0A3D3E);color:white;padding:24px;border-radius:12px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-family:'Instrument Serif',serif;font-size:22px}
+.header a{color:#A7F3D0;font-size:13px;text-decoration:none}
+.card{background:white;padding:28px;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;border:1px solid #E5E7EB}
+.card h2{color:#0A3D3E;font-size:18px;margin-bottom:20px;font-family:'Instrument Serif',serif}
+.fg{margin-bottom:20px}
+.fg label{display:block;margin-bottom:6px;color:#374151;font-weight:600;font-size:13px}
+.fg input,.fg select{width:100%;padding:11px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:15px;font-family:inherit;color:#1F2937}
+.fg input:focus,.fg select:focus{outline:none;border-color:#0F5B5C;box-shadow:0 0 0 3px rgba(15,91,92,.08)}
+.fg .hint{font-size:11px;color:#9CA3AF;margin-top:4px}
+.info-box{background:#E0F2FE;border:1px solid #BAE6FD;padding:14px;border-radius:8px;font-size:12px;color:#075985;margin-bottom:20px}
+.btn-row{display:flex;gap:10px;margin-top:8px}
+.btn{padding:14px 28px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
+.btn-teal{background:#0F5B5C;color:white}.btn-teal:hover{background:#178182}
+.btn-gray{background:#E5E7EB;color:#374151}
+.flash{padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px}
+.flash-error{background:#FEE2E2;border:1px solid #FECACA;color:#991B1B}
+.flash-success{background:#D1FAE5;border:1px solid #A7F3D0;color:#065F46}
+</style>
 </head>
 <body>
-    <div class="header">
-        <h1>⚙️ Admin Settings</h1>
-        <div style="display: flex; gap: 15px; align-items: center;">
-            <a href="/admin/dashboard" class="logout-btn">← Back to Dashboard</a>
-            <a href="/admin/logout" class="logout-btn">Logout</a>
-        </div>
-    </div>
-    
-    <div class="container">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        
-        <div class="settings-card">
-            <h2>Campaign Configuration</h2>
-            <form method="POST" action="/admin/settings">
-                <div class="form-group">
-                    <label for="activity_name">Activity Name</label>
-                    <input type="text" id="activity_name" name="activity_name" 
-                           value="{{ activity_name }}" required>
-                    <div class="info-box">
-                        <strong>ℹ️ Information:</strong><br>
-                        This is the name of the activity that will appear at the top of the registration form.
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="activity_dates">Activity Dates</label>
-                    <input type="text" id="activity_dates" name="activity_dates" 
-                           value="{{ activity_dates }}" required>
-                    <div class="info-box">
-                        <strong>ℹ️ Information:</strong><br>
-                        Enter the date range for the activity (e.g., "30th November to 7th December 2025").
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="campaign_days">Number of Campaign Days</label>
-                    <input type="number" id="campaign_days" name="campaign_days" 
-                           value="{{ campaign_days }}" min="1" max="7" required>
-                    <div class="info-box">
-                        <strong>ℹ️ Information:</strong><br>
-                        This setting controls how many day checkboxes appear in the registration form. 
-                        For example, if set to 1, only "Day 1" will appear. If set to 2, both "Day 1" and "Day 2" will appear.
-                        <br><br>
-                        <strong>Current setting:</strong> {{ campaign_days }} day(s)
-                    </div>
-                </div>
-                
-                <button type="submit" class="btn btn-primary">Save Settings</button>
-                <a href="/admin/dashboard" class="btn btn-secondary">Cancel</a>
-            </form>
-        </div>
-    </div>
+<div class="container">
+ <div class="header">
+  <h1>Settings: {{ assessment.name }}</h1>
+  <a href="{{ url_for('admin_dashboard', assessment_id=assessment.id) }}">&larr; Back to Dashboard</a>
+ </div>
+
+ {% with messages = get_flashed_messages(with_categories=true) %}
+ {% if messages %}
+  {% for category, message in messages %}
+  <div class="flash flash-{{ category }}">{{ message }}</div>
+  {% endfor %}
+ {% endif %}
+ {% endwith %}
+
+ <form method="POST">
+  <div class="card">
+   <h2>Assessment Configuration</h2>
+
+   <div class="info-box">These settings control how the registration form appears for participants who select this assessment.</div>
+
+   <div class="fg">
+    <label>Assessment Name</label>
+    <input type="text" name="activity_name" value="{{ activity_name }}" placeholder="e.g. EDIL Assessment - Kampala">
+    <div class="hint">Displayed as the heading when participants open this assessment</div>
+   </div>
+
+   <div class="fg">
+    <label>Activity Dates</label>
+    <input type="text" name="activity_dates" value="{{ activity_dates }}" placeholder="e.g. 30th November to 7th December 2025">
+    <div class="hint">Displayed below the assessment name</div>
+   </div>
+
+   <div class="fg">
+    <label>Number of Campaign Days</label>
+    <select name="campaign_days">
+     {% for i in range(1, 6) %}
+     <option value="{{ i }}" {% if campaign_days == i %}selected{% endif %}>{{ i }} day{{ 's' if i > 1 else '' }}</option>
+     {% endfor %}
+    </select>
+    <div class="hint">Controls how many day checkboxes appear (1st, 2nd, 3rd, etc.)</div>
+   </div>
+
+   <div class="fg">
+    <label>Participant PIN</label>
+    <input type="text" name="pin" value="{{ assessment.pin }}" placeholder="e.g. 3456" maxlength="10">
+    <div class="hint">Participants need this PIN to access the registration form. Min 3 characters.</div>
+   </div>
+
+   <div class="btn-row">
+    <button type="submit" class="btn btn-teal">Save Settings</button>
+    <a href="{{ url_for('admin_dashboard', assessment_id=assessment.id) }}" class="btn btn-gray" style="text-decoration:none;text-align:center">Cancel</a>
+   </div>
+  </div>
+ </form>
+</div>
 </body>
 </html>
-

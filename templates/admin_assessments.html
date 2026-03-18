@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHAI Uganda - My Assessments</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:#1F2937}
+.container{max-width:900px;margin:0 auto;padding:16px}
+.header{background:linear-gradient(135deg,#0F5B5C,#0A3D3E);color:white;padding:24px;border-radius:12px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.header h1{font-family:'Instrument Serif',serif;font-size:24px}
+.header a{color:#A7F3D0;font-size:13px;text-decoration:none;font-weight:500}
+.card{background:white;padding:24px;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;border:1px solid #E5E7EB}
+.card h2{color:#0A3D3E;font-size:18px;margin-bottom:16px;font-family:'Instrument Serif',serif}
+.fg{margin-bottom:14px}
+.fg label{display:block;margin-bottom:4px;color:#374151;font-weight:600;font-size:13px}
+.fg .req{color:#DC2626}
+.fg input,.fg select{width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:14px;font-family:inherit;color:#1F2937}
+.fg input:focus,.fg select:focus{outline:none;border-color:#0F5B5C;box-shadow:0 0 0 3px rgba(15,91,92,.08)}
+.fg .hint{font-size:11px;color:#9CA3AF;margin-top:3px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn{padding:12px 24px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:active{transform:scale(.98)}
+.btn-teal{background:#0F5B5C;color:white;width:100%}.btn-teal:hover{background:#178182}
+.btn-sm{padding:7px 14px;font-size:12px;border-radius:6px}
+.btn-green{background:#059669;color:white}
+.btn-gray{background:#6B7280;color:white}
+.btn-red{background:#DC2626;color:white}
+.btn-gold{background:#D4A843;color:white}
+.flash{padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px}
+.flash-error{background:#FEE2E2;border:1px solid #FECACA;color:#991B1B}
+.flash-success{background:#D1FAE5;border:1px solid #A7F3D0;color:#065F46}
+.flash-info{background:#E0F2FE;border:1px solid #BAE6FD;color:#075985}
+.flash-warning{background:#FEF3C7;border:1px solid #FDE68A;color:#92400E}
+.assess-list{display:flex;flex-direction:column;gap:12px}
+.assess-card{background:white;border:2px solid #F3F4F6;border-radius:12px;padding:20px;transition:.15s}
+.assess-card:hover{border-color:#E5E7EB;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.assess-card.inactive{opacity:.6}
+.ac-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.ac-name{font-size:18px;font-weight:700;color:#0A3D3E;font-family:'Instrument Serif',serif}
+.ac-dates{font-size:12px;color:#6B7280;margin-top:2px}
+.ac-meta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.ac-badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600}
+.ac-badge.active{background:#D1FAE5;color:#059669}
+.ac-badge.inactive{background:#FEE2E2;color:#DC2626}
+.ac-badge.pin{background:#E0F2FE;color:#075985}
+.ac-badge.days{background:#F5ECD7;color:#92400E}
+.ac-badge.count{background:#E8F4F4;color:#0F5B5C}
+.ac-actions{display:flex;gap:8px;flex-wrap:wrap}
+.empty{text-align:center;padding:40px;color:#9CA3AF;font-size:14px}
+@media(max-width:600px){.row2{grid-template-columns:1fr}.ac-top{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="container">
+ <div class="header">
+  <h1>My Assessments</h1>
+  <a href="{{ url_for('admin_logout') }}">Logout</a>
+ </div>
+
+ {% with messages = get_flashed_messages(with_categories=true) %}
+ {% if messages %}
+  {% for category, message in messages %}
+  <div class="flash flash-{{ category }}">{{ message }}</div>
+  {% endfor %}
+ {% endif %}
+ {% endwith %}
+
+ <!-- Create New Assessment -->
+ <div class="card">
+  <h2>Create New Assessment</h2>
+  <form method="POST" action="{{ url_for('create_assessment') }}">
+   <div class="fg">
+    <label>Assessment Name <span class="req">*</span></label>
+    <input type="text" name="name" placeholder="e.g. EDIL Assessment - Kampala" required>
+   </div>
+   <div class="row2">
+    <div class="fg">
+     <label>Activity Dates</label>
+     <input type="text" name="dates_label" placeholder="e.g. 30th Nov to 7th Dec 2025">
+    </div>
+    <div class="fg">
+     <label>Campaign Days <span class="req">*</span></label>
+     <select name="campaign_days">
+      <option value="1">1 day</option>
+      <option value="2">2 days</option>
+      <option value="3" selected>3 days</option>
+      <option value="4">4 days</option>
+      <option value="5">5 days</option>
+     </select>
+    </div>
+   </div>
+   <div class="fg">
+    <label>PIN for Participants <span class="req">*</span></label>
+    <input type="text" name="pin" placeholder="e.g. 3456" maxlength="10" required>
+    <div class="hint">Participants will need this PIN to access the registration form. Share it with your field team.</div>
+   </div>
+   <button type="submit" class="btn btn-teal">Create Assessment</button>
+  </form>
+ </div>
+
+ <!-- Assessment List -->
+ <div class="card">
+  <h2>All Assessments</h2>
+  {% if assessments %}
+  <div class="assess-list">
+   {% for a in assessments %}
+   <div class="assess-card {{ 'inactive' if not a.is_active }}">
+    <div class="ac-top">
+     <div>
+      <div class="ac-name">{{ a.name }}</div>
+      {% if a.dates_label %}
+      <div class="ac-dates">{{ a.dates_label }}</div>
+      {% endif %}
+     </div>
+    </div>
+    <div class="ac-meta">
+     <span class="ac-badge {{ 'active' if a.is_active else 'inactive' }}">{{ 'Active' if a.is_active else 'Inactive' }}</span>
+     <span class="ac-badge pin">PIN: {{ a.pin }}</span>
+     <span class="ac-badge days">{{ a.campaign_days }} day{{ 's' if a.campaign_days > 1 }}</span>
+     <span class="ac-badge count">{{ counts.get(a.id, 0) }} registrations</span>
+    </div>
+    <div class="ac-actions">
+     <a href="{{ url_for('admin_dashboard', assessment_id=a.id) }}" class="btn btn-sm btn-green">View Data</a>
+     <a href="{{ url_for('admin_settings', assessment_id=a.id) }}" class="btn btn-sm btn-gray">Settings</a>
+     <form method="POST" action="{{ url_for('toggle_assessment', assessment_id=a.id) }}" style="display:inline">
+      <button type="submit" class="btn btn-sm btn-gold">{{ 'Deactivate' if a.is_active else 'Activate' }}</button>
+     </form>
+     <form method="POST" action="{{ url_for('delete_assessment', assessment_id=a.id) }}" style="display:inline" onsubmit="return confirm('Delete assessment &quot;{{ a.name }}&quot; and ALL its data? This cannot be undone!')">
+      <button type="submit" class="btn btn-sm btn-red">Delete</button>
+     </form>
+    </div>
+   </div>
+   {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">No assessments yet. Create one above to get started.</div>
+  {% endif %}
+ </div>
+</div>
+</body>
+</html>
