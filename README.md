@@ -299,7 +299,7 @@ python app.py
 
 | Name | Role | GitHub |
 |------|------|--------|
-| **Olal Emmanuel** | Senior Associate, CHAI Foundation -- Project Lead & Requirements | -- |
+| **Emmanuel Olal** | Senior Associate, Clinton Health Access Initiative | -- |
 | **Isaac Omoding** | Data Scientist | [@Isaac25-lgtm](https://github.com/Isaac25-lgtm) |
 
 ---
