@@ -300,7 +300,7 @@ python app.py
 | Name | Role | GitHub |
 |------|------|--------|
 | **Olal Emmanuel** | Senior Associate, CHAI Foundation -- Project Lead & Requirements | -- |
-| **Isaac Omoding** | Developer | [@Isaac25-lgtm](https://github.com/Isaac25-lgtm) |
+| **Isaac Omoding** | Data Scientist | [@Isaac25-lgtm](https://github.com/Isaac25-lgtm) |
 
 ---
 
