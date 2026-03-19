@@ -116,11 +116,12 @@ tbody tr:hover{background:#E8F4F4}
   Participant PIN: <strong>{{ assessment.pin }}</strong> &mdash; Share this with your field team so they can access this assessment.
  </div>
 
- <!-- Location Mismatch Alert -->
- <div id="locBanner" style="display:none;background:#FEF3C7;border:2px solid #FDE68A;border-radius:10px;padding:16px 20px;margin-bottom:16px">
-  <h3 style="color:#92400E;font-size:15px;margin-bottom:8px">&#128205; Location Mismatch Alerts</h3>
+ <!-- Location Mismatch Alert (red like duplicates) -->
+ <div id="locBanner" class="dupe-banner">
+  <h3>&#128205; Location Mismatch Alerts</h3>
+  <div id="locSummary" style="font-size:13px;color:#991B1B;margin-bottom:8px"></div>
   <div id="locDetails" style="display:none"></div>
-  <button class="dupe-toggle" style="background:#92400E" onclick="var d=document.getElementById('locDetails');d.style.display=d.style.display==='none'?'block':'none';this.textContent=d.style.display==='none'?'Review Location Alerts':'Hide Details'">Review Location Alerts</button>
+  <button class="dupe-toggle" onclick="var d=document.getElementById('locDetails');d.style.display=d.style.display==='none'?'block':'none';this.textContent=d.style.display==='none'?'Review Location Alerts':'Hide Details'">Review Location Alerts</button>
  </div>
 
  <!-- Duplicate Detection Banner -->
@@ -340,16 +341,23 @@ fetch('/admin/location-alerts/{{ assessment.id }}')
     if(!data.mismatches||!data.mismatches.length) return;
     const banner=document.getElementById('locBanner');
     banner.style.display='block';
-    banner.querySelector('h3').innerHTML='&#128205; '+data.count+' Location Mismatch Alert'+(data.count!==1?'s':'');
-    let h='<div style="font-size:12px;color:#92400E;margin-bottom:8px">These submissions were made from a GPS location that does not match the selected district:</div>';
+    banner.querySelector('h3').innerHTML='\u26A0 '+data.count+' Possible Entrant'+(data.count!==1?'s':'')+' Outside Designated District';
+    document.getElementById('locSummary').textContent=data.count+' submission'+(data.count!==1?'s were':' was')+' made from a GPS location that does not match the selected district.';
+    let h='';
     data.mismatches.forEach(m=>{
-      h+='<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:12px;color:#7F1D1D">';
+      h+='<div class="dupe-item">';
       h+='<strong>'+m.name+'</strong> selected <strong>'+m.selected_district+'</strong> but GPS shows <strong>'+m.gps_location+'</strong>';
-      h+=' ('+m.facility+', '+m.date+') ';
+      h+=' &mdash; '+m.facility+', '+m.date+' ';
       if(m.latitude&&m.longitude) h+='<a href="https://www.google.com/maps?q='+m.latitude+','+m.longitude+'" target="_blank" style="color:#0F5B5C;font-weight:600;text-decoration:none">&#128205; View on Map</a>';
       h+='</div>';
     });
     document.getElementById('locDetails').innerHTML=h;
+    // Highlight mismatched rows
+    const mismatchIds=new Set(data.mismatches.map(m=>m.id));
+    mismatchIds.forEach(id=>{
+      const row=document.querySelector('tr[data-id="'+id+'"]');
+      if(row) row.classList.add('dupe-row');
+    });
   }).catch(()=>{});
 
 // ── Duplicate Detection ──
