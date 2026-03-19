@@ -118,7 +118,7 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
  <h2>Submitted Participants <span class="count-badge" id="fCount">0</span></h2>
  <div style="overflow-x:auto"><table><thead><tr id="fTheadRow"></tr></thead><tbody id="fTbody"></tbody></table></div>
  <div class="action-row">
-  <button class="btn btn-gray" onclick="dlFieldXLS()">&#128229; Download Excel</button>
+  <a id="dlLink" href="#" class="btn btn-gray" style="text-decoration:none;text-align:center">&#128229; Download Styled Excel</a>
  </div>
 </div>
 
@@ -139,11 +139,11 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 const CAMPAIGN_DAYS = {{ campaign_days }};
 const ASSESSMENT_ID = {{ assessment.id }};
 let submitted = []; // tracks successfully sent participants for display
+let lastFacility = '';
 
 function ord(n){const s=['','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th','13th','14th','15th','16th','17th','18th','19th','20th','21st','22nd','23rd','24th','25th','26th','27th','28th','29th','30th'];return s[n]||n+'th'}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
@@ -209,6 +209,7 @@ async function addFieldP(){
     const d=await r.json();
     if(d.success){
       submitted[idx].status='sent';
+      lastFacility=fac;
       updFieldTable();
       // Clear form
       ['fName','fCadre','fFacility','fPhone','fMomoName'].forEach(id=>document.getElementById(id).value='');
@@ -238,27 +239,19 @@ function updFieldTable(){
     else statusHtml='<span class="status-sending">\u23F3 Sending...</span>';
     tb.innerHTML+='<tr><td style="text-align:center">'+(i+1)+'</td><td>'+esc(p.nm)+'</td><td>'+esc(p.cd)+'</td><td>'+esc(p.fac)+'</td><td>'+esc(p.dist)+'</td><td>'+esc(p.ph)+'</td><td>'+esc(p.momo)+'</td>'+dc+'<td>'+esc(p.regDate)+'</td><td>'+statusHtml+'</td></tr>';
   });
-  document.getElementById('fCount').textContent=submitted.filter(p=>p.status==='sent').length;
+  const sentCount=submitted.filter(p=>p.status==='sent').length;
+  document.getElementById('fCount').textContent=sentCount;
   document.getElementById('fTableWrap').classList.toggle('h',!submitted.length);
   document.getElementById('fInstr').style.display=submitted.length?'none':'block';
-}
-
-function dlFieldXLS(){
-  const sent=submitted.filter(p=>p.status==='sent');
-  if(!sent.length){toast('No submitted participants to download');return}
-  const wb=XLSX.utils.book_new();
-  const hdr=['No.',"\u2019Participant\u2019s Name",'Cadre','Duty Station (Facility)','District','Mobile Number Registered','Names Registered on Mobile Money'];
-  for(let d=1;d<=CAMPAIGN_DAYS;d++) hdr.push('Day '+d);
-  hdr.push('Registration Date');
-  const rows=[hdr];
-  sent.forEach((p,i)=>{const row=[i+1,p.nm,p.cd,p.fac,p.dist,p.ph,p.momo];for(let d=1;d<=CAMPAIGN_DAYS;d++) row.push(p.att[d]?'\u2611':'\u2610');row.push(p.regDate||'');rows.push(row)});
-  const ws=XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols']=[{wch:5},{wch:25},{wch:16},{wch:21},{wch:16},{wch:21},{wch:30}];
-  for(let d=0;d<CAMPAIGN_DAYS;d++) ws['!cols'].push({wch:8});
-  ws['!cols'].push({wch:14});
-  XLSX.utils.book_append_sheet(wb,ws,'Registration & Attendance');
-  XLSX.writeFile(wb,'CHAI_Registration_'+new Date().toISOString().slice(0,10)+'.xlsx');
-  showAlert('\u2705 Excel downloaded!','success');
+  // Update download link to server-side styled Excel
+  const dlLink=document.getElementById('dlLink');
+  if(sentCount>0){
+    // Use the full assessment download from admin (server-side styled)
+    dlLink.href='/download/facility/'+ASSESSMENT_ID+'/'+encodeURIComponent(lastFacility||submitted.find(p=>p.status==='sent')?.fac||'');
+    dlLink.style.opacity='1';dlLink.style.pointerEvents='auto';
+  } else {
+    dlLink.href='#';dlLink.style.opacity='.4';dlLink.style.pointerEvents='none';
+  }
 }
 
 document.getElementById('fPhone').addEventListener('input',function(e){let v=e.target.value;if(v.startsWith('0'))e.target.value=v.substring(1);if(v.length>9)e.target.value=v.substring(0,9)});
