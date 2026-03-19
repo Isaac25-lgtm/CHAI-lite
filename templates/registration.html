@@ -98,6 +98,20 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
 <!-- Persistent completed facilities banner -->
 <div id="completedBanners"></div>
 
+<!-- GPS Location Card (visible to participant) -->
+<div id="gpsCard" style="display:none;background:white;border:1px solid #E5E7EB;border-left:4px solid #0F5B5C;border-radius:12px;padding:14px 18px;margin-bottom:16px">
+ <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+  <div>
+   <div style="font-size:12px;font-weight:600;color:#374151">Your Current Location</div>
+   <div id="gpsCoords" style="font-size:11px;color:#6B7280;margin-top:2px"></div>
+  </div>
+  <a id="gpsMapLink" href="#" target="_blank" style="background:#0F5B5C;color:white;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px">&#128205; View on Map</a>
+ </div>
+</div>
+
+<!-- GPS Warning (if location seems wrong for selected district) -->
+<div id="gpsWarning" style="display:none;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:12px 18px;margin-bottom:16px;font-size:13px;color:#92400E"></div>
+
 <!-- Offline queue banner -->
 <div id="queueBanner" style="display:none;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:12px 18px;margin-bottom:16px;font-size:13px;color:#92400E;animation:slideIn .3s ease"></div>
 
@@ -160,20 +174,59 @@ const QK = 'chai_offlineQ_'+ASSESSMENT_ID;
 let submitted = [];
 let lastFacility = '';
 let gpsLat = null, gpsLng = null;
+let gpsLocationName = '';
 
 // Capture GPS on page load
 if(navigator.geolocation){
   navigator.geolocation.getCurrentPosition(
-    function(pos){gpsLat=pos.coords.latitude;gpsLng=pos.coords.longitude;
+    function(pos){
+      gpsLat=pos.coords.latitude;gpsLng=pos.coords.longitude;
+      // Update header status
       const el=document.getElementById('gpsStatus');
-      if(el) el.innerHTML='<span style="color:#059669;font-size:11px">GPS: '+gpsLat.toFixed(4)+', '+gpsLng.toFixed(4)+'</span>';
+      if(el) el.innerHTML='<span style="color:#059669;font-size:11px">&#128205; GPS active</span>';
+      // Show location card
+      const card=document.getElementById('gpsCard');
+      card.style.display='block';
+      document.getElementById('gpsCoords').textContent=gpsLat.toFixed(5)+', '+gpsLng.toFixed(5);
+      document.getElementById('gpsMapLink').href='https://www.google.com/maps?q='+gpsLat+','+gpsLng;
+      // Reverse geocode to get location name
+      fetch('https://nominatim.openstreetmap.org/reverse?lat='+gpsLat+'&lon='+gpsLng+'&format=json&zoom=10')
+        .then(r=>r.json())
+        .then(data=>{
+          if(data.display_name){
+            gpsLocationName=data.display_name;
+            document.getElementById('gpsCoords').textContent=data.display_name.substring(0,80)+(data.display_name.length>80?'...':'')+' ('+gpsLat.toFixed(4)+', '+gpsLng.toFixed(4)+')';
+          }
+        }).catch(()=>{});
     },
-    function(){
+    function(err){
       const el=document.getElementById('gpsStatus');
       if(el) el.innerHTML='<span style="color:#D4A843;font-size:11px">GPS unavailable</span>';
+      const card=document.getElementById('gpsCard');
+      card.style.display='block';
+      document.getElementById('gpsCoords').innerHTML='<span style="color:#DC2626">Location access denied or unavailable. Your submissions will not include GPS data.</span>';
+      document.getElementById('gpsMapLink').style.display='none';
     },
-    {enableHighAccuracy:true,timeout:10000}
+    {enableHighAccuracy:true,timeout:15000}
   );
+} else {
+  const el=document.getElementById('gpsStatus');
+  if(el) el.innerHTML='<span style="color:#D4A843;font-size:11px">No GPS</span>';
+}
+
+// Check if selected district matches GPS location
+function checkDistrictMatch(selectedDistrict){
+  if(!gpsLocationName||!selectedDistrict) return;
+  const warn=document.getElementById('gpsWarning');
+  // Extract district name without "District" suffix for matching
+  const distName=selectedDistrict.replace(' District','').replace(' City','').toLowerCase();
+  const locLower=gpsLocationName.toLowerCase();
+  if(!locLower.includes(distName)){
+    warn.style.display='block';
+    warn.innerHTML='<strong>&#9888; Location Mismatch:</strong> You selected <strong>'+esc(selectedDistrict)+'</strong> but your GPS shows you are near <strong>'+esc(gpsLocationName.substring(0,60))+'</strong>. This will be flagged to the manager.';
+  } else {
+    warn.style.display='none';
+  }
 }
 
 // ── Completed facilities (persistent) ──
@@ -315,7 +368,7 @@ async function addFieldP(){
   updFieldTable();
 
   try{
-    const r=await fetch('/submit/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participants:[payload],assessment_id:ASSESSMENT_ID,latitude:gpsLat,longitude:gpsLng})});
+    const r=await fetch('/submit/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participants:[payload],assessment_id:ASSESSMENT_ID,latitude:gpsLat,longitude:gpsLng,gps_location_name:gpsLocationName})});
     const d=await r.json();
     if(d.success){
       submitted[idx].status='sent';
@@ -407,6 +460,8 @@ function completeFacility(){
 }
 
 document.getElementById('fPhone').addEventListener('input',function(e){let v=e.target.value;if(v.startsWith('0'))e.target.value=v.substring(1);if(v.length>9)e.target.value=v.substring(0,9)});
+document.getElementById('fDistrict').addEventListener('change',function(){checkDistrictMatch(this.value)});
+document.getElementById('fDistrict').addEventListener('blur',function(){checkDistrictMatch(this.value)});
 
 // Restore queued items from localStorage on page load
 (function restoreQueue(){

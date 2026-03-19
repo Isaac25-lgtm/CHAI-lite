@@ -116,6 +116,13 @@ tbody tr:hover{background:#E8F4F4}
   Participant PIN: <strong>{{ assessment.pin }}</strong> &mdash; Share this with your field team so they can access this assessment.
  </div>
 
+ <!-- Location Mismatch Alert -->
+ <div id="locBanner" style="display:none;background:#FEF3C7;border:2px solid #FDE68A;border-radius:10px;padding:16px 20px;margin-bottom:16px">
+  <h3 style="color:#92400E;font-size:15px;margin-bottom:8px">&#128205; Location Mismatch Alerts</h3>
+  <div id="locDetails" style="display:none"></div>
+  <button class="dupe-toggle" style="background:#92400E" onclick="var d=document.getElementById('locDetails');d.style.display=d.style.display==='none'?'block':'none';this.textContent=d.style.display==='none'?'Review Location Alerts':'Hide Details'">Review Location Alerts</button>
+ </div>
+
  <!-- Duplicate Detection Banner -->
  <div id="dupeBanner" class="dupe-banner"></div>
 
@@ -190,7 +197,7 @@ tbody tr:hover{background:#E8F4F4}
        {% endif %}
       {% endfor %}
       <td>{{ reg.registration_date.strftime('%Y-%m-%d') }}</td>
-      <td style="font-size:11px;white-space:nowrap">{% if reg.latitude and reg.longitude %}<a href="https://www.google.com/maps?q={{ reg.latitude }},{{ reg.longitude }}" target="_blank" style="color:#0F5B5C;text-decoration:none" title="{{ reg.latitude|round(4) }}, {{ reg.longitude|round(4) }}">&#128205; {{ reg.district }}</a>{% else %}<span style="color:#9CA3AF">No GPS</span>{% endif %}</td>
+      <td style="font-size:11px">{% if reg.latitude and reg.longitude %}<a href="https://www.google.com/maps?q={{ reg.latitude }},{{ reg.longitude }}" target="_blank" style="color:#0F5B5C;text-decoration:none" title="{{ reg.gps_location_name or '' }}">&#128205; {{ (reg.gps_location_name or '')[:30] }}{{ '...' if (reg.gps_location_name or '')|length > 30 else '' }}</a><br><span style="font-size:10px;color:#9CA3AF">{{ reg.latitude|round(4) }}, {{ reg.longitude|round(4) }}</span>{% else %}<span style="color:#9CA3AF">No GPS</span>{% endif %}</td>
       <td style="white-space:nowrap">
        <a href="{{ url_for('edit_registration', assessment_id=assessment.id, reg_id=reg.id) }}" class="btn btn-teal btn-sm" style="text-decoration:none">Edit</a>
        <form method="POST" action="{{ url_for('delete_registration', assessment_id=assessment.id, reg_id=reg.id) }}" style="display:inline" onsubmit="return confirm('Delete this registration?')">
@@ -325,8 +332,27 @@ new Chart(document.getElementById('dayChart').getContext('2d'), {
 {% endif %}
 
 <script>
-// ── Duplicate Detection ──
+// ── Location Mismatch Alerts ──
 {% if total_count > 0 %}
+fetch('/admin/location-alerts/{{ assessment.id }}')
+  .then(r=>r.json())
+  .then(data=>{
+    if(!data.mismatches||!data.mismatches.length) return;
+    const banner=document.getElementById('locBanner');
+    banner.style.display='block';
+    banner.querySelector('h3').innerHTML='&#128205; '+data.count+' Location Mismatch Alert'+(data.count!==1?'s':'');
+    let h='<div style="font-size:12px;color:#92400E;margin-bottom:8px">These submissions were made from a GPS location that does not match the selected district:</div>';
+    data.mismatches.forEach(m=>{
+      h+='<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:12px;color:#7F1D1D">';
+      h+='<strong>'+m.name+'</strong> selected <strong>'+m.selected_district+'</strong> but GPS shows <strong>'+m.gps_location+'</strong>';
+      h+=' ('+m.facility+', '+m.date+') ';
+      if(m.latitude&&m.longitude) h+='<a href="https://www.google.com/maps?q='+m.latitude+','+m.longitude+'" target="_blank" style="color:#0F5B5C;font-weight:600;text-decoration:none">&#128205; View on Map</a>';
+      h+='</div>';
+    });
+    document.getElementById('locDetails').innerHTML=h;
+  }).catch(()=>{});
+
+// ── Duplicate Detection ──
 fetch('/admin/duplicates/{{ assessment.id }}')
   .then(r=>r.json())
   .then(data=>{

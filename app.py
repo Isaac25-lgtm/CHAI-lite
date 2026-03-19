@@ -190,6 +190,7 @@ class Registration(db.Model):
     mm_registered_names = db.Column(db.String(200), nullable=False)
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
+    gps_location_name = db.Column(db.String(300), default='')
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def get_day(self, n):
@@ -212,6 +213,7 @@ class Registration(db.Model):
             'mm_registered_names': self.mm_registered_names,
             'latitude': self.latitude,
             'longitude': self.longitude,
+            'gps_location_name': self.gps_location_name or '',
             'submitted_at': self.submitted_at.strftime('%Y-%m-%d %H:%M:%S')
         }
         for i in range(1, 31):
@@ -295,6 +297,9 @@ with app.app_context():
                 "ALTER TABLE registration ADD COLUMN IF NOT EXISTS latitude FLOAT"))
             db.session.execute(db.text(
                 "ALTER TABLE registration ADD COLUMN IF NOT EXISTS longitude FLOAT"))
+            # GPS location name
+            db.session.execute(db.text(
+                "ALTER TABLE registration ADD COLUMN IF NOT EXISTS gps_location_name VARCHAR(300) DEFAULT ''"))
             # Lock column
             db.session.execute(db.text(
                 "ALTER TABLE assessment ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE"))
@@ -468,6 +473,7 @@ def submit_bulk_registration():
         assessment_id = data.get('assessment_id')
         gps_lat = data.get('latitude')
         gps_lng = data.get('longitude')
+        gps_loc_name = data.get('gps_location_name', '')
 
         if not participants:
             return jsonify({'success': False, 'error': 'No participants provided'}), 400
@@ -503,7 +509,8 @@ def submit_bulk_registration():
                 mobile_number=p.get('mobile_number', '').strip(),
                 mm_registered_names=p.get('mm_registered_names', '').strip(),
                 latitude=gps_lat,
-                longitude=gps_lng
+                longitude=gps_lng,
+                gps_location_name=gps_loc_name
             )
             for day_num in range(1, 31):
                 registration.set_day(day_num, p.get(f'day{day_num}', False))
@@ -1277,6 +1284,35 @@ def names_similar(n1, n2):
     if total >= 2 and overlap >= total - 1:
         return True
     return False
+
+
+@app.route('/admin/location-alerts/<int:assessment_id>')
+@login_required
+def admin_location_alerts(assessment_id):
+    """Detect submissions where GPS location doesn't match selected district"""
+    regs = Registration.query.filter_by(assessment_id=assessment_id).filter(
+        Registration.latitude.isnot(None),
+        Registration.gps_location_name != '',
+        Registration.gps_location_name.isnot(None)
+    ).all()
+
+    mismatches = []
+    for r in regs:
+        dist_name = r.district.replace(' District', '').replace(' City', '').lower()
+        loc_lower = (r.gps_location_name or '').lower()
+        if dist_name and loc_lower and dist_name not in loc_lower:
+            mismatches.append({
+                'id': r.id,
+                'name': r.participant_name,
+                'selected_district': r.district,
+                'gps_location': r.gps_location_name[:80],
+                'facility': r.facility,
+                'latitude': r.latitude,
+                'longitude': r.longitude,
+                'date': r.registration_date.strftime('%Y-%m-%d') if r.registration_date else ''
+            })
+
+    return jsonify({'mismatches': mismatches, 'count': len(mismatches)})
 
 
 @app.route('/admin/duplicates/<int:assessment_id>')
