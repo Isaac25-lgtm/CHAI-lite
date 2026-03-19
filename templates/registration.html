@@ -46,7 +46,7 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:
 .btn{padding:14px 24px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s;display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%}
 .btn:active{transform:scale(.98)}.btn:disabled{opacity:.4;cursor:not-allowed}
 .btn-teal{background:#0F5B5C;color:white}.btn-teal:hover{background:#178182}
-.btn-green{background:#059669;color:white}
+.btn-green{background:#059669;color:white}.btn-green:hover{background:#047857}
 .btn-gray{background:#6B7280;color:white}
 .btn-red{background:#DC2626;color:white;padding:8px 14px;font-size:13px;width:auto;border-radius:6px}
 .action-row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}.action-row .btn{flex:1;min-width:160px}
@@ -67,6 +67,12 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
 .status-sent{color:#059669;font-weight:600;font-size:11px}
 .status-fail{color:#DC2626;font-weight:600;font-size:11px}
 .status-sending{color:#2563EB;font-weight:600;font-size:11px}
+.completed-banner{background:#D1FAE5;border:1px solid #A7F3D0;border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.completed-banner .info{display:flex;align-items:center;gap:8px}
+.completed-banner .icon{font-size:20px}
+.completed-banner .fac-name{font-weight:700;color:#065F46;font-size:14px}
+.completed-banner .meta{font-size:11px;color:#6B7280}
+.completed-banner .badge{background:#059669;color:white;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap}
 @media(max-width:600px){.row2{grid-template-columns:1fr}.action-row{flex-direction:column}.action-row .btn{min-width:100%}}
 </style>
 </head>
@@ -87,6 +93,9 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
   <div class="net-badge on" id="netBadge"><span>&#9679;</span> <span>Online</span></div>
  </div>
 </div>
+
+<!-- Persistent completed facilities banner -->
+<div id="completedBanners"></div>
 
 <div id="fAlert" class="alert"></div>
 
@@ -118,16 +127,16 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
  <h2>Submitted Participants <span class="count-badge" id="fCount">0</span></h2>
  <div style="overflow-x:auto"><table><thead><tr id="fTheadRow"></tr></thead><tbody id="fTbody"></tbody></table></div>
  <div class="action-row">
-  <a id="dlLink" href="#" class="btn btn-gray" style="text-decoration:none;text-align:center">&#128229; Download Styled Excel</a>
+  <button class="btn btn-green" id="completeBtn" onclick="completeFacility()" style="display:none">&#9989; Complete Registration &amp; Download Excel</button>
  </div>
 </div>
 
 <div id="fInstr" class="instructions"><h3>&#128204; Instructions:</h3><ol>
 <li>Fill in all required participant information above</li>
 <li>Select which days the participant attended</li>
-<li>Click "Add Participant" — data is <strong>instantly sent</strong> to the manager</li>
-<li>Repeat for all participants</li>
-<li>Download Excel if you need a local copy</li>
+<li>Click "Add Participant" &mdash; data is <strong>instantly sent</strong> to the manager</li>
+<li>Repeat for all participants at this facility</li>
+<li>When done, click <strong>"Complete Registration & Download Excel"</strong></li>
 <li><strong>&#9745; = Attended | &#9744; = Absent</strong></li>
 </ol></div>
 
@@ -142,10 +151,13 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
 <script>
 const CAMPAIGN_DAYS = {{ campaign_days }};
 const ASSESSMENT_ID = {{ assessment.id }};
-let submitted = []; // tracks successfully sent participants for display
+const CK = 'chai_completed_'+ASSESSMENT_ID; // localStorage key for completed facilities
+let submitted = [];
 let lastFacility = '';
 
-function ord(n){const s=['','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th','13th','14th','15th','16th','17th','18th','19th','20th','21st','22nd','23rd','24th','25th','26th','27th','28th','29th','30th'];return s[n]||n+'th'}
+function getCompleted(){try{return JSON.parse(localStorage.getItem(CK)||'[]')}catch(e){return[]}}
+function saveCompleted(list){localStorage.setItem(CK,JSON.stringify(list))}
+
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
 function showAlert(msg,type){const el=document.getElementById('fAlert');el.className='alert alert-'+type;el.innerHTML=msg;el.style.display='block';if(type!=='sending')setTimeout(()=>el.style.display='none',5000)}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
@@ -156,6 +168,17 @@ function updNet(){
   el.innerHTML='<span>&#9679;</span> <span>'+(on?'Online':'Offline')+'</span>';
 }
 window.addEventListener('online',updNet);window.addEventListener('offline',updNet);
+
+function renderCompletedBanners(){
+  const list=getCompleted();
+  const el=document.getElementById('completedBanners');
+  if(!list.length){el.innerHTML='';return}
+  let h='';
+  list.forEach(c=>{
+    h+='<div class="completed-banner"><div class="info"><span class="icon">&#9989;</span><div><div class="fac-name">'+esc(c.facility)+' &mdash; '+esc(c.district)+'</div><div class="meta">'+c.count+' participants submitted &middot; '+c.date+'</div></div></div><span class="badge">SUBMITTED</span></div>';
+  });
+  el.innerHTML=h;
+}
 
 function buildDayCheckboxes(){
   const g=document.getElementById('fDaysGroup');let h='';
@@ -189,16 +212,13 @@ async function addFieldP(){
   const att={};for(let i=1;i<=CAMPAIGN_DAYS;i++) att[i]=days.includes(i);
   const pData={nm,cd,dist,fac,ph:'+256'+ph,momo,att,regDate};
 
-  // Build server payload
   const payload={participant_name:nm,cadre:cd,district:dist,facility:fac,registration_date:regDate,mobile_number:'+256'+ph,mm_registered_names:momo};
   for(let d=1;d<=30;d++) payload['day'+d]=!!att[d];
 
-  // Disable button, show sending
   const btn=document.getElementById('addBtn');
   btn.disabled=true;btn.innerHTML='&#8987; Sending...';
   showAlert('Sending participant data to server...','sending');
 
-  // Add to table immediately with "sending" status
   const idx=submitted.length;
   submitted.push({...pData,status:'sending'});
   updFieldTable();
@@ -211,7 +231,6 @@ async function addFieldP(){
       submitted[idx].status='sent';
       lastFacility=fac;
       updFieldTable();
-      // Clear form
       ['fName','fCadre','fFacility','fPhone','fMomoName'].forEach(id=>document.getElementById(id).value='');
       for(let i=1;i<=CAMPAIGN_DAYS;i++){const cb=document.getElementById('fd'+i);if(cb)cb.checked=false}
       updDayPreview();
@@ -243,20 +262,48 @@ function updFieldTable(){
   document.getElementById('fCount').textContent=sentCount;
   document.getElementById('fTableWrap').classList.toggle('h',!submitted.length);
   document.getElementById('fInstr').style.display=submitted.length?'none':'block';
-  // Update download link to server-side styled Excel
-  const dlLink=document.getElementById('dlLink');
-  if(sentCount>0){
-    // Use the full assessment download from admin (server-side styled)
-    dlLink.href='/download/facility/'+ASSESSMENT_ID+'/'+encodeURIComponent(lastFacility||submitted.find(p=>p.status==='sent')?.fac||'');
-    dlLink.style.opacity='1';dlLink.style.pointerEvents='auto';
+
+  // Update complete button
+  const completeBtn=document.getElementById('completeBtn');
+  if(sentCount>0&&lastFacility){
+    completeBtn.style.display='flex';
+    completeBtn.innerHTML='\u2705 Complete Registration of <strong style="margin:0 4px">'+esc(lastFacility)+'</strong> &amp; Download Excel';
   } else {
-    dlLink.href='#';dlLink.style.opacity='.4';dlLink.style.pointerEvents='none';
+    completeBtn.style.display='none';
   }
+}
+
+function completeFacility(){
+  const sent=submitted.filter(p=>p.status==='sent');
+  if(!sent.length||!lastFacility) return;
+
+  const fac=lastFacility;
+  const dist=sent[0]?.dist||'';
+  const count=sent.length;
+
+  // Save to completed list in localStorage (persists for the assessment lifetime)
+  const list=getCompleted();
+  // Don't duplicate
+  if(!list.find(c=>c.facility===fac)){
+    list.push({facility:fac,district:dist,count:count,date:new Date().toLocaleDateString()});
+    saveCompleted(list);
+  }
+
+  // Download styled Excel from server
+  window.open('/download/facility/'+ASSESSMENT_ID+'/'+encodeURIComponent(fac),'_blank');
+
+  // Clear current session
+  submitted=[];
+  lastFacility='';
+  updFieldTable();
+  renderCompletedBanners();
+  showAlert('\u2705 Registration of <strong>'+esc(fac)+'</strong> completed and Excel downloaded!','success');
+  window.scrollTo(0,0);
 }
 
 document.getElementById('fPhone').addEventListener('input',function(e){let v=e.target.value;if(v.startsWith('0'))e.target.value=v.substring(1);if(v.length>9)e.target.value=v.substring(0,9)});
 
-buildDayCheckboxes();updFieldTable();updNet();
+buildDayCheckboxes();updFieldTable();updNet();renderCompletedBanners();
 </script>
 </body>
 </html>
