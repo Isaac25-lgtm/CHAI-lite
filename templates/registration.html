@@ -173,46 +173,47 @@ const CK = 'chai_completed_'+ASSESSMENT_ID;
 const QK = 'chai_offlineQ_'+ASSESSMENT_ID;
 let submitted = [];
 let lastFacility = '';
-let gpsLat = null, gpsLng = null;
-let gpsLocationName = '';
+// Read GPS from sessionStorage (captured at menu page)
+let gpsLat = parseFloat(sessionStorage.getItem('chai_gps_lat')) || null;
+let gpsLng = parseFloat(sessionStorage.getItem('chai_gps_lng')) || null;
+let gpsLocationName = sessionStorage.getItem('chai_gps_name') || '';
 
-// Capture GPS on page load
-if(navigator.geolocation){
-  navigator.geolocation.getCurrentPosition(
-    function(pos){
+// Update UI with stored GPS
+(function(){
+  const el=document.getElementById('gpsStatus');
+  const card=document.getElementById('gpsCard');
+  if(gpsLat && gpsLng){
+    if(el) el.innerHTML='<span style="color:#059669;font-size:11px">&#128205; GPS active</span>';
+    card.style.display='block';
+    document.getElementById('gpsCoords').textContent=(gpsLocationName||'').substring(0,80)+' ('+gpsLat.toFixed(4)+', '+gpsLng.toFixed(4)+')';
+    document.getElementById('gpsMapLink').href='https://www.google.com/maps?q='+gpsLat+','+gpsLng;
+  } else {
+    if(el) el.innerHTML='<span style="color:#DC2626;font-size:11px">No GPS</span>';
+    card.style.display='block';
+    document.getElementById('gpsCoords').innerHTML='<span style="color:#DC2626">GPS not captured. <a href="{{ url_for("participant_menu", assessment_id=assessment.id) }}" style="color:#0F5B5C;font-weight:600">Go back to enable GPS</a></span>';
+    document.getElementById('gpsMapLink').style.display='none';
+  }
+
+  // Also try to refresh GPS silently
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(function(pos){
       gpsLat=pos.coords.latitude;gpsLng=pos.coords.longitude;
-      // Update header status
-      const el=document.getElementById('gpsStatus');
+      sessionStorage.setItem('chai_gps_lat',gpsLat);
+      sessionStorage.setItem('chai_gps_lng',gpsLng);
       if(el) el.innerHTML='<span style="color:#059669;font-size:11px">&#128205; GPS active</span>';
-      // Show location card
-      const card=document.getElementById('gpsCard');
       card.style.display='block';
-      document.getElementById('gpsCoords').textContent=gpsLat.toFixed(5)+', '+gpsLng.toFixed(5);
+      document.getElementById('gpsCoords').textContent=(gpsLocationName||'').substring(0,80)+' ('+gpsLat.toFixed(4)+', '+gpsLng.toFixed(4)+')';
       document.getElementById('gpsMapLink').href='https://www.google.com/maps?q='+gpsLat+','+gpsLng;
-      // Reverse geocode to get location name
+      // Refresh location name
       fetch('https://nominatim.openstreetmap.org/reverse?lat='+gpsLat+'&lon='+gpsLng+'&format=json&zoom=10')
-        .then(r=>r.json())
-        .then(data=>{
-          if(data.display_name){
-            gpsLocationName=data.display_name;
-            document.getElementById('gpsCoords').textContent=data.display_name.substring(0,80)+(data.display_name.length>80?'...':'')+' ('+gpsLat.toFixed(4)+', '+gpsLng.toFixed(4)+')';
+        .then(r=>r.json()).then(data=>{
+          if(data.display_name){gpsLocationName=data.display_name;sessionStorage.setItem('chai_gps_name',gpsLocationName);
+            document.getElementById('gpsCoords').textContent=gpsLocationName.substring(0,80)+' ('+gpsLat.toFixed(4)+', '+gpsLng.toFixed(4)+')';
           }
         }).catch(()=>{});
-    },
-    function(err){
-      const el=document.getElementById('gpsStatus');
-      if(el) el.innerHTML='<span style="color:#D4A843;font-size:11px">GPS unavailable</span>';
-      const card=document.getElementById('gpsCard');
-      card.style.display='block';
-      document.getElementById('gpsCoords').innerHTML='<span style="color:#DC2626">Location access denied or unavailable. Your submissions will not include GPS data.</span>';
-      document.getElementById('gpsMapLink').style.display='none';
-    },
-    {enableHighAccuracy:true,timeout:15000}
-  );
-} else {
-  const el=document.getElementById('gpsStatus');
-  if(el) el.innerHTML='<span style="color:#D4A843;font-size:11px">No GPS</span>';
-}
+    },function(){},{enableHighAccuracy:true,timeout:10000});
+  }
+})();
 
 // Check if selected district matches GPS location
 function checkDistrictMatch(selectedDistrict){

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>CHAI Uganda - {{ assessment.name }}</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:#1F2937;-webkit-font-smoothing:antialiased}
 .container{max-width:800px;margin:0 auto;padding:16px}
@@ -28,6 +28,19 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:
 .arrow{font-size:20px;color:#D1D5DB;margin-left:auto}
 .switch-link{text-align:center;margin-top:20px}
 .switch-link a{color:#6B7280;font-size:12px;text-decoration:none}
+.gps-gate{background:white;border-radius:16px;padding:40px 28px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.08);border:1px solid #E5E7EB}
+.gps-gate .icon{font-size:48px;margin-bottom:16px}
+.gps-gate h2{font-family:'DM Sans',sans-serif;font-size:20px;color:#0A3D3E;margin-bottom:8px}
+.gps-gate p{font-size:13px;color:#6B7280;margin-bottom:20px;line-height:1.5}
+.gps-gate .btn{padding:14px 24px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;width:100%;background:#0F5B5C;color:white}
+.gps-gate .btn:hover{background:#178182}
+.gps-denied{background:#FEE2E2;border:1px solid #FECACA;border-radius:8px;padding:14px;color:#991B1B;font-size:13px;margin-top:16px;display:none}
+.gps-card{background:white;border:1px solid #E5E7EB;border-left:4px solid #059669;border-radius:12px;padding:14px 18px;margin-bottom:16px}
+.gps-card .loc-name{font-size:13px;font-weight:600;color:#065F46}
+.gps-card .loc-coords{font-size:11px;color:#6B7280;margin-top:2px}
+.gps-card .loc-link{font-size:11px;color:#0F5B5C;font-weight:600;text-decoration:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.loading-dot{animation:pulse 1.5s infinite}
 </style>
 </head>
 <body>
@@ -48,28 +61,132 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:
  </div>
 </div>
 
-<a href="{{ url_for('registration_form', assessment_id=assessment.id) }}" class="menu-item">
- <div class="mi-icon" style="background:#E8F4F4">&#128203;</div>
- <div style="flex:1">
-  <div class="mi-title">Field Activity</div>
-  <div class="mi-desc">Facility participants &mdash; MoMo registration &amp; attendance</div>
+<!-- GPS Gate: blocks menu until GPS is granted -->
+<div id="gpsGate" class="gps-gate">
+ <div class="icon">&#128205;</div>
+ <h2 id="gpsTitle">Enable Location Access</h2>
+ <p id="gpsMsg">Location access is <strong>required</strong> for field operations. This verifies you are at the designated facility. Your GPS coordinates will be recorded with each submission.</p>
+ <button class="btn" id="gpsBtn" onclick="requestGPS()">&#128205; Enable Location</button>
+ <div class="gps-denied" id="gpsDenied">
+  <strong>Location access was denied.</strong><br>
+  Please enable location in your browser settings and reload this page. You cannot proceed without GPS.
+  <br><br>
+  <strong>How to enable:</strong><br>
+  Android Chrome: Tap the lock icon in the address bar &rarr; Permissions &rarr; Location &rarr; Allow<br>
+  iPhone Safari: Settings &rarr; Safari &rarr; Location &rarr; Allow
  </div>
- <span class="arrow">&rsaquo;</span>
-</a>
+</div>
 
-<a href="{{ url_for('bank_form', assessment_id=assessment.id) }}" class="menu-item">
- <div class="mi-icon" style="background:#F5ECD7">&#127974;</div>
- <div style="flex:1">
-  <div class="mi-title">Assessment Team Payment</div>
-  <div class="mi-desc">Submit bank details for per diem payment</div>
+<!-- Location display (shown after GPS is granted) -->
+<div id="gpsDisplay" class="gps-card" style="display:none">
+ <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+  <div>
+   <div class="loc-name" id="locName">&#128205; Location captured</div>
+   <div class="loc-coords" id="locCoords"></div>
+  </div>
+  <a id="locMapLink" href="#" target="_blank" class="loc-link">View on Map &rarr;</a>
  </div>
- <span class="arrow">&rsaquo;</span>
-</a>
+</div>
+
+<!-- Menu (hidden until GPS is granted) -->
+<div id="menuItems" style="display:none">
+ <a href="{{ url_for('registration_form', assessment_id=assessment.id) }}" class="menu-item">
+  <div class="mi-icon" style="background:#E8F4F4">&#128203;</div>
+  <div style="flex:1">
+   <div class="mi-title">Field Activity</div>
+   <div class="mi-desc">Facility participants &mdash; MoMo registration &amp; attendance</div>
+  </div>
+  <span class="arrow">&rsaquo;</span>
+ </a>
+
+ <a href="{{ url_for('bank_form', assessment_id=assessment.id) }}" class="menu-item">
+  <div class="mi-icon" style="background:#F5ECD7">&#127974;</div>
+  <div style="flex:1">
+   <div class="mi-title">Assessment Team Payment</div>
+   <div class="mi-desc">Submit bank details for per diem payment</div>
+  </div>
+  <span class="arrow">&rsaquo;</span>
+ </a>
+</div>
 
 <div class="switch-link">
  <a href="/">&larr; Switch Assessment</a>
 </div>
 
 </div>
+
+<script>
+function requestGPS(){
+  const btn=document.getElementById('gpsBtn');
+  const title=document.getElementById('gpsTitle');
+  const msg=document.getElementById('gpsMsg');
+  btn.disabled=true;
+  btn.innerHTML='<span class="loading-dot">&#128205;</span> Detecting location...';
+  title.textContent='Detecting Your Location...';
+  msg.textContent='Please allow location access when prompted by your browser.';
+
+  if(!navigator.geolocation){
+    title.textContent='GPS Not Supported';
+    msg.textContent='Your device does not support GPS. Please use a device with location services.';
+    btn.innerHTML='GPS Not Available';
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    function(pos){
+      const lat=pos.coords.latitude;
+      const lng=pos.coords.longitude;
+
+      // Store in sessionStorage so registration page can access it
+      sessionStorage.setItem('chai_gps_lat', lat);
+      sessionStorage.setItem('chai_gps_lng', lng);
+
+      // Hide gate, show menu
+      document.getElementById('gpsGate').style.display='none';
+      document.getElementById('menuItems').style.display='block';
+      const display=document.getElementById('gpsDisplay');
+      display.style.display='block';
+
+      document.getElementById('locCoords').textContent=lat.toFixed(5)+', '+lng.toFixed(5);
+      document.getElementById('locMapLink').href='https://www.google.com/maps?q='+lat+','+lng;
+
+      // Reverse geocode
+      fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lng+'&format=json&zoom=10')
+        .then(r=>r.json())
+        .then(data=>{
+          if(data.display_name){
+            sessionStorage.setItem('chai_gps_name', data.display_name);
+            document.getElementById('locName').textContent='&#128205; '+data.display_name.substring(0,80);
+            document.getElementById('locCoords').textContent=data.display_name.substring(0,100)+' ('+lat.toFixed(4)+', '+lng.toFixed(4)+')';
+          }
+        }).catch(()=>{});
+    },
+    function(err){
+      document.getElementById('gpsDenied').style.display='block';
+      title.textContent='Location Access Required';
+      msg.textContent='You must enable location access to use this tool.';
+      btn.innerHTML='&#128205; Try Again';
+      btn.disabled=false;
+    },
+    {enableHighAccuracy:true, timeout:20000, maximumAge:0}
+  );
+}
+
+// Check if GPS was already granted in this session
+(function(){
+  const lat=sessionStorage.getItem('chai_gps_lat');
+  const lng=sessionStorage.getItem('chai_gps_lng');
+  const name=sessionStorage.getItem('chai_gps_name');
+  if(lat&&lng){
+    document.getElementById('gpsGate').style.display='none';
+    document.getElementById('menuItems').style.display='block';
+    const display=document.getElementById('gpsDisplay');
+    display.style.display='block';
+    document.getElementById('locCoords').textContent=(name||'')+' ('+parseFloat(lat).toFixed(4)+', '+parseFloat(lng).toFixed(4)+')';
+    document.getElementById('locMapLink').href='https://www.google.com/maps?q='+lat+','+lng;
+    if(name) document.getElementById('locName').textContent='&#128205; '+name.substring(0,80);
+  }
+})();
+</script>
 </body>
 </html>
