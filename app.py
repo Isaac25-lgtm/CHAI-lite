@@ -404,6 +404,7 @@ def build_excel(registrations, campaign_days, sheet_title="Registration & Attend
         headers.append(f'Day {day}')
     headers.append('Registration Date')
     headers.append('GPS Location')
+    headers.append('GPS Coordinates')
     ws.append(headers)
 
     for cell in ws[1]:
@@ -419,8 +420,9 @@ def build_excel(registrations, campaign_days, sheet_title="Registration & Attend
         for day in range(1, campaign_days + 1):
             row.append('\u2611' if getattr(reg, f'day{day}', False) else '\u2610')
         row.append(reg.registration_date.strftime('%Y-%m-%d') if reg.registration_date else '')
-        gps = f'{reg.latitude:.4f}, {reg.longitude:.4f}' if reg.latitude and reg.longitude else ''
-        row.append(gps)
+        row.append(reg.gps_location_name or '')
+        coords = f'{reg.latitude:.4f}, {reg.longitude:.4f}' if reg.latitude and reg.longitude else ''
+        row.append(coords)
         ws.append(row)
 
         row_num = idx + 1
@@ -436,7 +438,7 @@ def build_excel(registrations, campaign_days, sheet_title="Registration & Attend
         ws.row_dimensions[row_num].height = 22
 
     base_widths = [5, 25, 16, 21, 16, 21, 30]
-    all_widths = base_widths + [8] * campaign_days + [14, 22]
+    all_widths = base_widths + [8] * campaign_days + [14, 35, 22]
     for i, w in enumerate(all_widths, start=1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
     return wb
