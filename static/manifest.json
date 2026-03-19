@@ -1,0 +1,18 @@
+{
+  "name": "CHAI Uganda Field Operations",
+  "short_name": "CHAI Uganda",
+  "description": "Clinton Health Access Initiative - Field Operations Tool",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#0F5B5C",
+  "background_color": "#F0F4F4",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/chai-logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -90,6 +90,7 @@ tbody tr:hover{background:#E8F4F4}
    <div class="sub">{{ assessment.dates_label }}</div>
   </div>
   <div class="header-links">
+   <a href="{{ url_for('admin_summary_pdf', assessment_id=assessment.id) }}" target="_blank">&#128424; Print Summary</a>
    <a href="{{ url_for('admin_bank_details', assessment_id=assessment.id) }}">&#127974; Bank Details</a>
    <a href="{{ url_for('admin_audit_log', assessment_id=assessment.id) }}">&#128220; Audit Log</a>
    <a href="{{ url_for('admin_settings', assessment_id=assessment.id) }}">&#9881; Settings</a>
@@ -114,6 +115,12 @@ tbody tr:hover{background:#E8F4F4}
 
  <div class="pin-display">
   Participant PIN: <strong>{{ assessment.pin }}</strong> &mdash; Share this with your field team so they can access this assessment.
+ </div>
+
+ <!-- Auto-refresh indicator -->
+ <div id="autoRefreshBar" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;color:#6B7280">
+  <span id="arLabel" style="background:#D1FAE5;color:#065F46;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px">Auto-refresh: ON</span>
+  <button onclick="toggleAutoRefresh()" id="arToggle" style="background:#E5E7EB;border:none;padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:600">Disable</button>
  </div>
 
  <!-- Location Mismatch Alert (red like duplicates) -->
@@ -183,7 +190,7 @@ tbody tr:hover{background:#E8F4F4}
     {% for reg in registrations %}
      <tr data-id="{{ reg.id }}">
       <td style="text-align:center"><input type="checkbox" class="row-cb" value="{{ reg.id }}" onchange="updateBulkBar()"></td>
-      <td style="text-align:center">{{ loop.index }}</td>
+      <td style="text-align:center">{{ (page - 1) * per_page + loop.index }}</td>
       <td>{{ reg.participant_name }}</td>
       <td>{{ reg.cadre }}</td>
       <td>{{ reg.facility }}</td>
@@ -212,6 +219,28 @@ tbody tr:hover{background:#E8F4F4}
   </div>
   {% else %}
   <div class="empty">No registrations found</div>
+  {% endif %}
+
+  <!-- Pagination -->
+  {% if total_pages > 1 %}
+  <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:16px;flex-wrap:wrap">
+   {% if page > 1 %}
+   <a href="?page={{ page - 1 }}&search={{ search }}&district={{ selected_district }}&date_from={{ date_from }}&date_to={{ date_to }}" class="btn btn-gray btn-sm">&larr; Previous</a>
+   {% endif %}
+   {% for p in range(1, total_pages + 1) %}
+    {% if p == page %}
+    <span style="background:#0F5B5C;color:white;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:700">{{ p }}</span>
+    {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 2 and p <= page + 2) %}
+    <a href="?page={{ p }}&search={{ search }}&district={{ selected_district }}&date_from={{ date_from }}&date_to={{ date_to }}" style="padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;color:#0F5B5C;border:1px solid #E5E7EB;background:white">{{ p }}</a>
+    {% elif p == 4 or p == total_pages - 3 %}
+    <span style="color:#9CA3AF;font-size:12px">...</span>
+    {% endif %}
+   {% endfor %}
+   {% if page < total_pages %}
+   <a href="?page={{ page + 1 }}&search={{ search }}&district={{ selected_district }}&date_from={{ date_from }}&date_to={{ date_to }}" class="btn btn-gray btn-sm">Next &rarr;</a>
+   {% endif %}
+   <span style="font-size:11px;color:#9CA3AF;margin-left:8px">Page {{ page }} of {{ total_pages }}</span>
+  </div>
   {% endif %}
  </div>
 
@@ -366,13 +395,16 @@ fetch('/admin/duplicates/{{ assessment.id }}')
   .then(data=>{
     const phoneDupes=data.phone_duplicates||[];
     const nameDupes=data.name_duplicates||[];
-    if(!phoneDupes.length&&!nameDupes.length) return;
+    const crossDupes=data.cross_assessment_duplicates||[];
+    if(!phoneDupes.length&&!nameDupes.length&&!crossDupes.length) return;
 
     const banner=document.getElementById('dupeBanner');
     banner.style.display='block';
 
     let h='<h3>\u26A0 Possible Duplicates Detected</h3>';
-    h+='<div style="font-size:13px;color:#991B1B;margin-bottom:8px">'+phoneDupes.length+' phone duplicate'+(phoneDupes.length!==1?'s':'')+', '+nameDupes.length+' name match'+(nameDupes.length!==1?'es':'')+'</div>';
+    h+='<div style="font-size:13px;color:#991B1B;margin-bottom:8px">'+phoneDupes.length+' phone duplicate'+(phoneDupes.length!==1?'s':'')+', '+nameDupes.length+' name match'+(nameDupes.length!==1?'es':'');
+    if(crossDupes.length) h+=', '+crossDupes.length+' cross-assessment match'+(crossDupes.length!==1?'es':'');
+    h+='</div>';
     h+='<div id="dupeDetails" style="display:none">';
 
     if(phoneDupes.length){
@@ -387,6 +419,14 @@ fetch('/admin/duplicates/{{ assessment.id }}')
       h+='<div style="font-weight:700;margin:8px 0 4px;color:#991B1B">Similar Names:</div>';
       nameDupes.forEach(nd=>{
         h+='<div class="dupe-item"><strong>"'+nd.reg1.name+'"</strong> \u2194 <strong>"'+nd.reg2.name+'"</strong> ('+nd.match_type+') &mdash; '+nd.reg1.facility+' / '+nd.reg2.facility+'</div>';
+      });
+    }
+    if(crossDupes.length){
+      h+='<div style="font-weight:700;margin:8px 0 4px;color:#991B1B">Cross-Assessment Phone Matches:</div>';
+      crossDupes.forEach(cd=>{
+        h+='<div class="dupe-item"><strong>'+cd.mobile_number+'</strong> also found in: ';
+        h+=cd.other_assessments.map(o=>'<em>'+o.assessment_name+'</em> ('+o.name+', '+o.facility+')').join('; ');
+        h+='</div>';
       });
     }
     h+='</div>';
@@ -422,6 +462,33 @@ function updateBulkBar(){
     bar.style.display='none';
   }
 }
+
+// ── Auto-refresh (60 seconds) ──
+let autoRefreshEnabled = true;
+let autoRefreshTimer = null;
+function startAutoRefresh(){
+  if(autoRefreshTimer) clearInterval(autoRefreshTimer);
+  autoRefreshTimer = setInterval(function(){
+    if(autoRefreshEnabled) location.reload();
+  }, 60000);
+}
+function toggleAutoRefresh(){
+  autoRefreshEnabled = !autoRefreshEnabled;
+  const label = document.getElementById('arLabel');
+  const btn = document.getElementById('arToggle');
+  if(autoRefreshEnabled){
+    label.textContent='Auto-refresh: ON';
+    label.style.background='#D1FAE5'; label.style.color='#065F46';
+    btn.textContent='Disable';
+    startAutoRefresh();
+  } else {
+    label.textContent='Auto-refresh: OFF';
+    label.style.background='#FEE2E2'; label.style.color='#991B1B';
+    btn.textContent='Enable';
+    if(autoRefreshTimer) clearInterval(autoRefreshTimer);
+  }
+}
+startAutoRefresh();
 
 async function bulkSet(present){
   const checked=document.querySelectorAll('tbody .row-cb:checked');

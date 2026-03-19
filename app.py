@@ -1,9 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, g
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import io
 import os
 import re
+import time
 from functools import wraps
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -33,11 +35,54 @@ db = SQLAlchemy(app)
 
 # Admin credentials from environment variables
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
+ADMIN_PASSWORD_RAW = os.environ.get('ADMIN_PASSWORD', 'admin123')
+ADMIN_PASSWORD_HASH = generate_password_hash(ADMIN_PASSWORD_RAW)
+
+# Rate limiting: track failed login/PIN attempts by IP
+# Structure: { ip: [(timestamp, ...), ...] }
+_failed_login_attempts = {}
+_failed_pin_attempts = {}
+RATE_LIMIT_MAX = 5       # max failures
+RATE_LIMIT_WINDOW = 900  # 15 minutes in seconds
+RATE_LIMIT_BLOCK = 900   # block for 15 minutes
+
+
+def _clean_attempts(store, ip):
+    """Remove attempts older than the window"""
+    now = time.time()
+    if ip in store:
+        store[ip] = [t for t in store[ip] if now - t < RATE_LIMIT_WINDOW]
+        if not store[ip]:
+            del store[ip]
+
+
+def _is_rate_limited(store, ip):
+    """Check if IP is rate-limited"""
+    _clean_attempts(store, ip)
+    if ip not in store:
+        return False
+    return len(store[ip]) >= RATE_LIMIT_MAX
+
+
+def _record_failure(store, ip):
+    """Record a failed attempt"""
+    now = time.time()
+    if ip not in store:
+        store[ip] = []
+    store[ip].append(now)
+
 
 # Session timeout (30 minutes)
 SESSION_TIMEOUT = int(os.environ.get('SESSION_TIMEOUT_MINUTES', 30))
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=SESSION_TIMEOUT)
+
+
+@app.before_request
+def enforce_https():
+    """Redirect HTTP to HTTPS when behind a proxy (Render) - only in production"""
+    if not app.debug and request.headers.get('X-Forwarded-Proto') == 'http':
+        url = request.url.replace('http://', 'https://', 1)
+        return redirect(url, code=301)
 
 
 @app.before_request
@@ -409,6 +454,11 @@ def index():
 @app.route('/join', methods=['POST'])
 def join_assessment():
     """Participant enters assessment PIN to access form"""
+    client_ip = request.remote_addr or '0.0.0.0'
+    if _is_rate_limited(_failed_pin_attempts, client_ip):
+        flash('Too many failed PIN attempts. Please try again in 15 minutes.', 'error')
+        return redirect(url_for('index'))
+
     assessment_id = request.form.get('assessment_id')
     pin = request.form.get('pin', '').strip()
 
@@ -422,9 +472,12 @@ def join_assessment():
         return redirect(url_for('index'))
 
     if assessment.pin != pin:
+        _record_failure(_failed_pin_attempts, client_ip)
         flash('Incorrect PIN. Please get the correct PIN from your manager.', 'error')
         return redirect(url_for('index'))
 
+    # Clear failed attempts on success
+    _failed_pin_attempts.pop(client_ip, None)
     # Store in session
     session['participant_assessment_id'] = assessment.id
     return redirect(url_for('participant_menu', assessment_id=assessment.id))
@@ -501,13 +554,13 @@ def submit_bulk_registration():
             reg_date = datetime.strptime(p.get('registration_date'), '%Y-%m-%d').date()
             registration = Registration(
                 assessment_id=assessment_id,
-                participant_name=p.get('participant_name', '').strip(),
+                participant_name=p.get('participant_name', '').strip().title(),
                 cadre=p.get('cadre', '').strip(),
                 district=p.get('district', '').strip(),
                 facility=p.get('facility', '').strip(),
                 registration_date=reg_date,
                 mobile_number=p.get('mobile_number', '').strip(),
-                mm_registered_names=p.get('mm_registered_names', '').strip(),
+                mm_registered_names=p.get('mm_registered_names', '').strip().title(),
                 latitude=gps_lat,
                 longitude=gps_lng,
                 gps_location_name=gps_loc_name
@@ -594,7 +647,7 @@ def submit_bank_details():
         for m in members:
             bd = BankDetail(
                 assessment_id=assessment_id,
-                account_name=(m.get('account_name') or '').strip(),
+                account_name=(m.get('account_name') or '').strip().title(),
                 designation=(m.get('designation') or '').strip(),
                 bank_name=(m.get('bank_name') or '').strip(),
                 account_number=(m.get('account_number') or '').strip(),
@@ -719,14 +772,22 @@ def build_bank_excel(bank_details, sheet_title="Payment Tracker"):
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
+        client_ip = request.remote_addr or '0.0.0.0'
+        if _is_rate_limited(_failed_login_attempts, client_ip):
+            flash('Too many failed login attempts. Please try again in 15 minutes.', 'error')
+            return render_template('admin_login.html')
+
         username = request.form.get('username')
         password = request.form.get('password')
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        if username == ADMIN_USERNAME and check_password_hash(ADMIN_PASSWORD_HASH, password):
             session['admin_logged_in'] = True
             session['admin_user'] = username
+            # Clear failed attempts on success
+            _failed_login_attempts.pop(client_ip, None)
             flash('Login successful!', 'success')
             return redirect(url_for('admin_assessments'))
         else:
+            _record_failure(_failed_login_attempts, client_ip)
             flash('Invalid credentials.', 'error')
     return render_template('admin_login.html')
 
@@ -864,7 +925,14 @@ def admin_dashboard(assessment_id):
         except ValueError:
             pass
 
-    registrations = query.order_by(Registration.submitted_at.desc()).all()
+    # Pagination
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    filtered_query = query.order_by(Registration.submitted_at.desc())
+    filtered_total = filtered_query.count()
+    total_pages = max(1, (filtered_total + per_page - 1) // per_page)
+    page = max(1, min(page, total_pages))
+    registrations = filtered_query.offset((page - 1) * per_page).limit(per_page).all()
 
     districts = [d[0] for d in db.session.query(Registration.district).filter_by(
         assessment_id=assessment_id).distinct().order_by(Registration.district).all()]
@@ -922,7 +990,7 @@ def admin_dashboard(assessment_id):
         registrations=registrations,
         total_count=total_count,
         today_count=today_count,
-        filtered_count=len(registrations),
+        filtered_count=filtered_total,
         search=search, districts=districts,
         selected_district=district,
         date_from=date_from, date_to=date_to,
@@ -934,7 +1002,8 @@ def admin_dashboard(assessment_id):
         unique_districts=unique_districts,
         unique_facilities=unique_facilities,
         bank_count=bank_count,
-        campaign_days=campaign_days)
+        campaign_days=campaign_days,
+        page=page, total_pages=total_pages, per_page=per_page)
 
 
 @app.route('/admin/settings/<int:assessment_id>', methods=['GET', 'POST'])
@@ -1083,7 +1152,14 @@ def admin_bank_details(assessment_id):
         except ValueError:
             pass
 
-    bank_details = query.order_by(BankDetail.submitted_at.desc()).all()
+    # Pagination
+    bank_page = request.args.get('page', 1, type=int)
+    bank_per_page = 50
+    bank_filtered_query = query.order_by(BankDetail.submitted_at.desc())
+    bank_filtered_total = bank_filtered_query.count()
+    bank_total_pages = max(1, (bank_filtered_total + bank_per_page - 1) // bank_per_page)
+    bank_page = max(1, min(bank_page, bank_total_pages))
+    bank_details = bank_filtered_query.offset((bank_page - 1) * bank_per_page).limit(bank_per_page).all()
 
     total_count = BankDetail.query.filter_by(assessment_id=assessment_id).count()
     banks = [b[0] for b in db.session.query(BankDetail.bank_name).filter_by(
@@ -1118,14 +1194,15 @@ def admin_bank_details(assessment_id):
 
     return render_template('admin_bank.html',
         assessment=assessment, bank_details=bank_details,
-        total_count=total_count, filtered_count=len(bank_details),
+        total_count=total_count, filtered_count=bank_filtered_total,
         search=search, banks=banks, selected_bank=bank_filter,
         date_from=date_from, date_to=date_to,
         bank_distribution=bucket_stats(bank_distribution),
         designation_stats=bucket_stats(designation_stats),
         branch_stats=bucket_stats(branch_stats),
         daily_submissions=daily_submissions,
-        unique_branches=unique_branches)
+        unique_branches=unique_branches,
+        page=bank_page, total_pages=bank_total_pages, per_page=bank_per_page)
 
 
 @app.route('/admin/bank/delete/<int:assessment_id>/<int:bd_id>', methods=['POST'])
@@ -1368,9 +1445,41 @@ def admin_duplicates(assessment_id):
         if len(name_results) >= 50:
             break
 
+    # Cross-assessment phone duplicates
+    cross_results = []
+    current_phones = db.session.query(Registration.mobile_number).filter_by(
+        assessment_id=assessment_id).distinct().all()
+    current_phone_set = {p[0] for p in current_phones}
+    if current_phone_set:
+        other_regs = Registration.query.filter(
+            Registration.assessment_id != assessment_id,
+            Registration.mobile_number.in_(current_phone_set)
+        ).all()
+        # Group by phone
+        cross_map = {}
+        for r in other_regs:
+            if r.mobile_number not in cross_map:
+                cross_map[r.mobile_number] = []
+            cross_map[r.mobile_number].append(r)
+        for phone, regs_list in cross_map.items():
+            # Get the assessment names
+            assessment_ids_set = {r.assessment_id for r in regs_list}
+            assessments_info = Assessment.query.filter(Assessment.id.in_(assessment_ids_set)).all()
+            assess_names = {a.id: a.name for a in assessments_info}
+            cross_results.append({
+                'mobile_number': phone,
+                'current_assessment': assessment.name,
+                'other_assessments': [
+                    {'assessment_name': assess_names.get(r.assessment_id, 'Unknown'),
+                     'name': r.participant_name, 'facility': r.facility}
+                    for r in regs_list[:10]  # limit per phone
+                ]
+            })
+
     return jsonify({
         'phone_duplicates': phone_results,
-        'name_duplicates': name_results
+        'name_duplicates': name_results,
+        'cross_assessment_duplicates': cross_results
     })
 
 
@@ -1436,6 +1545,91 @@ def admin_audit_log(assessment_id):
     logs = AuditLog.query.filter_by(assessment_id=assessment_id).order_by(
         AuditLog.performed_at.desc()).limit(200).all()
     return render_template('admin_audit.html', assessment=assessment, logs=logs)
+
+
+@app.route('/admin/summary-pdf/<int:assessment_id>')
+@login_required
+def admin_summary_pdf(assessment_id):
+    """Generate a printable HTML summary page for an assessment"""
+    assessment = Assessment.query.get_or_404(assessment_id)
+
+    total_count = Registration.query.filter_by(assessment_id=assessment_id).count()
+    unique_districts = db.session.query(db.func.count(db.distinct(Registration.district))).filter_by(
+        assessment_id=assessment_id).scalar() or 0
+    unique_facilities = db.session.query(db.func.count(db.distinct(Registration.facility))).filter_by(
+        assessment_id=assessment_id).scalar() or 0
+
+    district_stats = db.session.query(
+        Registration.district, db.func.count(Registration.id).label('count')
+    ).filter_by(assessment_id=assessment_id
+    ).group_by(Registration.district).order_by(db.func.count(Registration.id).desc()).limit(10).all()
+
+    facility_stats = db.session.query(
+        Registration.facility, db.func.count(Registration.id).label('count')
+    ).filter_by(assessment_id=assessment_id
+    ).group_by(Registration.facility).order_by(db.func.count(Registration.id).desc()).limit(10).all()
+
+    date_range = ''
+    if assessment.start_date and assessment.end_date:
+        date_range = f"{assessment.start_date.strftime('%d %b %Y')} to {assessment.end_date.strftime('%d %b %Y')}"
+    elif assessment.start_date:
+        date_range = f"From {assessment.start_date.strftime('%d %b %Y')}"
+
+    html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Summary - {assessment.name}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:'DM Sans',sans-serif;background:#fff;color:#1F2937;padding:40px}}
+.header{{text-align:center;margin-bottom:30px;border-bottom:3px solid #0F5B5C;padding-bottom:20px}}
+.header h1{{color:#0F5B5C;font-size:24px;margin-bottom:4px}}
+.header p{{font-size:13px;color:#6B7280}}
+.stats{{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:30px}}
+.stat{{text-align:center;padding:16px;border:2px solid #E5E7EB;border-radius:8px}}
+.stat .num{{font-size:28px;font-weight:700;color:#0F5B5C}}
+.stat .label{{font-size:11px;color:#6B7280;margin-top:4px}}
+table{{width:100%;border-collapse:collapse;margin-bottom:24px;font-size:13px}}
+th,td{{padding:8px 12px;text-align:left;border:1px solid #E5E7EB}}
+thead{{background:#0F5B5C;color:white}}
+th{{font-weight:600;font-size:11px;text-transform:uppercase}}
+tbody tr:nth-child(even){{background:#F9FAFB}}
+h2{{color:#0A3D3E;font-size:16px;margin-bottom:12px}}
+.print-btn{{background:#0F5B5C;color:white;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:20px}}
+.print-btn:hover{{background:#178182}}
+@media print{{
+ .print-btn{{display:none}}
+ body{{padding:20px}}
+}}
+</style>
+</head>
+<body>
+<button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
+<div class="header">
+ <h1>{assessment.name}</h1>
+ <p>{date_range} &middot; CHAI Uganda Field Operations</p>
+ <p style="margin-top:4px;font-size:11px;color:#9CA3AF">Generated on {datetime.utcnow().strftime("%d %b %Y %H:%M")} UTC</p>
+</div>
+<div class="stats">
+ <div class="stat"><div class="num">{total_count}</div><div class="label">Total Participants</div></div>
+ <div class="stat"><div class="num">{unique_districts}</div><div class="label">Districts Covered</div></div>
+ <div class="stat"><div class="num">{unique_facilities}</div><div class="label">Facilities Reached</div></div>
+ <div class="stat"><div class="num">{assessment.campaign_days}</div><div class="label">Campaign Days</div></div>
+</div>
+<h2>Top Districts</h2>
+<table><thead><tr><th>No.</th><th>District</th><th>Participants</th></tr></thead><tbody>'''
+    for i, (dist, cnt) in enumerate(district_stats, 1):
+        html += f'<tr><td>{i}</td><td>{dist}</td><td>{cnt}</td></tr>'
+    html += '''</tbody></table>
+<h2>Top Facilities</h2>
+<table><thead><tr><th>No.</th><th>Facility</th><th>Participants</th></tr></thead><tbody>'''
+    for i, (fac, cnt) in enumerate(facility_stats, 1):
+        html += f'<tr><td>{i}</td><td>{fac}</td><td>{cnt}</td></tr>'
+    html += '''</tbody></table>
+</body></html>'''
+    return html
 
 
 @app.route('/healthz')

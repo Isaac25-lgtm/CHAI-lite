@@ -464,6 +464,14 @@ document.getElementById('fPhone').addEventListener('input',function(e){let v=e.t
 document.getElementById('fDistrict').addEventListener('change',function(){checkDistrictMatch(this.value)});
 document.getElementById('fDistrict').addEventListener('blur',function(){checkDistrictMatch(this.value)});
 
+// Auto Title Case name fields
+function toTitleCase(str){return str.replace(/\b\w+/g,function(w){return w.charAt(0).toUpperCase()+w.substr(1).toLowerCase()})}
+['fName','fMomoName'].forEach(function(id){
+  document.getElementById(id).addEventListener('blur',function(){
+    if(this.value.trim()) this.value=toTitleCase(this.value.trim());
+  });
+});
+
 // Restore queued items from localStorage on page load
 (function restoreQueue(){
   const q=getQueue();

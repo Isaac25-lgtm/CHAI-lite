@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CHAI Uganda">
+<meta name="theme-color" content="#0F5B5C">
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
 <title>CHAI Uganda - Select Assessment</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
@@ -95,6 +100,15 @@ function showInfo(){
   document.getElementById('aiDates').textContent=opt.dataset.dates||'';
   document.getElementById('aiDays').textContent=opt.dataset.days+' campaign day'+(opt.dataset.days>1?'s':'');
   info.style.display='block';
+}
+
+// Register Service Worker
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/static/sw.js').then(function(reg){
+    console.log('SW registered:', reg.scope);
+  }).catch(function(err){
+    console.log('SW registration failed:', err);
+  });
 }
 </script>
 </body>
