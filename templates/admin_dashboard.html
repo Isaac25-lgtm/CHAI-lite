@@ -64,7 +64,22 @@ tbody tr:hover{background:#E8F4F4}
 .empty{text-align:center;padding:40px;color:#9CA3AF}
 .pin-display{background:#E8F4F4;border:1px solid #A7F3D0;border-radius:8px;padding:10px 16px;font-size:13px;color:#0A3D3E;margin-bottom:16px}
 .pin-display strong{font-size:18px;letter-spacing:4px;color:#0F5B5C}
-@media(max-width:600px){.filter-row{flex-direction:column}.action-row{flex-direction:column}.chart-grid{grid-template-columns:1fr}}
+.dupe-banner{background:#FEE2E2;border:2px solid #FECACA;border-radius:10px;padding:16px 20px;margin-bottom:16px;display:none}
+.dupe-banner h3{color:#991B1B;font-size:15px;margin-bottom:8px}
+.dupe-banner .dupe-item{background:#FFF5F5;border:1px solid #FECACA;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:12px;color:#7F1D1D}
+.dupe-banner .dupe-item strong{color:#991B1B}
+.dupe-toggle{background:#DC2626;color:white;border:none;padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;margin-top:8px;font-family:inherit}
+.bulk-bar{position:fixed;bottom:0;left:0;right:0;background:#1F2937;color:white;padding:14px 24px;display:none;align-items:center;justify-content:space-between;z-index:100;box-shadow:0 -4px 12px rgba(0,0,0,.15);gap:12px;flex-wrap:wrap}
+.bulk-bar .bulk-info{font-size:14px;font-weight:600}
+.bulk-bar .bulk-days{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.bulk-bar .bulk-days label{font-size:12px;cursor:pointer;display:flex;align-items:center;gap:3px}
+.bulk-bar .bulk-days input{accent-color:#0F5B5C;width:18px;height:18px}
+.bulk-bar .bulk-btn{padding:8px 16px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.bulk-bar .bulk-present{background:#059669;color:white}
+.bulk-bar .bulk-absent{background:#6B7280;color:white}
+.dupe-row{background:#FFF5F5!important}
+.row-cb{width:18px;height:18px;accent-color:#0F5B5C;cursor:pointer}
+@media(max-width:600px){.filter-row{flex-direction:column}.action-row{flex-direction:column}.chart-grid{grid-template-columns:1fr}.bulk-bar{flex-direction:column;text-align:center}}
 </style>
 </head>
 <body>
@@ -93,6 +108,9 @@ tbody tr:hover{background:#E8F4F4}
  <div class="pin-display">
   Participant PIN: <strong>{{ assessment.pin }}</strong> &mdash; Share this with your field team so they can access this assessment.
  </div>
+
+ <!-- Duplicate Detection Banner -->
+ <div id="dupeBanner" class="dupe-banner"></div>
 
  <!-- Stats Cards -->
  <div class="stats-row">
@@ -139,6 +157,7 @@ tbody tr:hover{background:#E8F4F4}
   <div class="tbl-wrap">
    <table>
     <thead><tr>
+     <th style="width:30px"><input type="checkbox" id="selectAll" onchange="toggleAll(this)" class="row-cb"></th>
      <th>No.</th><th>Participant's Name</th><th>Cadre</th><th>Duty Station (Facility)</th><th>District</th><th>Mobile Number Registered</th><th>Names Registered on Mobile Money</th>
      {% for d in range(1, campaign_days + 1) %}
      <th>Day {{ d }}</th>
@@ -147,7 +166,8 @@ tbody tr:hover{background:#E8F4F4}
     </tr></thead>
     <tbody>
     {% for reg in registrations %}
-     <tr>
+     <tr data-id="{{ reg.id }}">
+      <td style="text-align:center"><input type="checkbox" class="row-cb" value="{{ reg.id }}" onchange="updateBulkBar()"></td>
       <td style="text-align:center">{{ loop.index }}</td>
       <td>{{ reg.participant_name }}</td>
       <td>{{ reg.cadre }}</td>
@@ -279,5 +299,117 @@ new Chart(document.getElementById('dayChart').getContext('2d'), {
 });
 </script>
 {% endif %}
+
+<!-- Bulk Action Bar -->
+{% if registrations %}
+<div id="bulkBar" class="bulk-bar">
+ <div class="bulk-info"><span id="bulkCount">0</span> selected</div>
+ <div class="bulk-days">
+  {% for d in range(1, campaign_days + 1) %}
+  <label><input type="checkbox" id="bd{{ d }}" value="{{ d }}"> Day {{ d }}</label>
+  {% endfor %}
+ </div>
+ <div style="display:flex;gap:8px">
+  <button class="bulk-btn bulk-present" onclick="bulkSet(true)">Mark Present</button>
+  <button class="bulk-btn bulk-absent" onclick="bulkSet(false)">Mark Absent</button>
+ </div>
+</div>
+{% endif %}
+
+<script>
+// ── Duplicate Detection ──
+{% if total_count > 0 %}
+fetch('/admin/duplicates/{{ assessment.id }}')
+  .then(r=>r.json())
+  .then(data=>{
+    const phoneDupes=data.phone_duplicates||[];
+    const nameDupes=data.name_duplicates||[];
+    if(!phoneDupes.length&&!nameDupes.length) return;
+
+    const banner=document.getElementById('dupeBanner');
+    banner.style.display='block';
+
+    let h='<h3>\u26A0 Possible Duplicates Detected</h3>';
+    h+='<div style="font-size:13px;color:#991B1B;margin-bottom:8px">'+phoneDupes.length+' phone duplicate'+(phoneDupes.length!==1?'s':'')+', '+nameDupes.length+' name match'+(nameDupes.length!==1?'es':'')+'</div>';
+    h+='<div id="dupeDetails" style="display:none">';
+
+    if(phoneDupes.length){
+      h+='<div style="font-weight:700;margin-bottom:4px;color:#991B1B">Phone Duplicates:</div>';
+      phoneDupes.forEach(pd=>{
+        h+='<div class="dupe-item"><strong>'+pd.mobile_number+'</strong> appears '+pd.count+' times: ';
+        h+=pd.registrations.map(r=>r.name+' ('+r.facility+')').join(', ');
+        h+='</div>';
+      });
+    }
+    if(nameDupes.length){
+      h+='<div style="font-weight:700;margin:8px 0 4px;color:#991B1B">Similar Names:</div>';
+      nameDupes.forEach(nd=>{
+        h+='<div class="dupe-item"><strong>"'+nd.reg1.name+'"</strong> \u2194 <strong>"'+nd.reg2.name+'"</strong> ('+nd.match_type+') &mdash; '+nd.reg1.facility+' / '+nd.reg2.facility+'</div>';
+      });
+    }
+    h+='</div>';
+    h+='<button class="dupe-toggle" onclick="var d=document.getElementById(\'dupeDetails\');d.style.display=d.style.display===\'none\'?\'block\':\'none\';this.textContent=d.style.display===\'none\'?\'Review Duplicates\':\'Hide Details\'">Review Duplicates</button>';
+
+    banner.innerHTML=h;
+
+    // Highlight duplicate rows in table
+    const dupeIds=new Set();
+    phoneDupes.forEach(pd=>pd.registrations.forEach(r=>dupeIds.add(r.id)));
+    nameDupes.forEach(nd=>{dupeIds.add(nd.reg1.id);dupeIds.add(nd.reg2.id)});
+    dupeIds.forEach(id=>{
+      const row=document.querySelector('tr[data-id="'+id+'"]');
+      if(row) row.classList.add('dupe-row');
+    });
+  }).catch(()=>{});
+{% endif %}
+
+// ── Bulk Edit ──
+function toggleAll(master){
+  document.querySelectorAll('tbody .row-cb').forEach(cb=>{cb.checked=master.checked});
+  updateBulkBar();
+}
+
+function updateBulkBar(){
+  const checked=document.querySelectorAll('tbody .row-cb:checked');
+  const bar=document.getElementById('bulkBar');
+  if(!bar) return;
+  if(checked.length>0){
+    bar.style.display='flex';
+    document.getElementById('bulkCount').textContent=checked.length;
+  } else {
+    bar.style.display='none';
+  }
+}
+
+async function bulkSet(present){
+  const checked=document.querySelectorAll('tbody .row-cb:checked');
+  const regIds=Array.from(checked).map(cb=>parseInt(cb.value));
+  if(!regIds.length) return;
+
+  // Get selected days from bulk bar
+  const days={};
+  let anyDay=false;
+  for(let d=1;d<=30;d++){
+    const el=document.getElementById('bd'+d);
+    if(el&&el.checked){days[d]=present;anyDay=true}
+  }
+  if(!anyDay){alert('Please select at least one Day checkbox in the bulk bar');return}
+
+  if(!confirm('Set '+(present?'PRESENT':'ABSENT')+' for '+regIds.length+' participant'+(regIds.length>1?'s':'')+'?')) return;
+
+  try{
+    const r=await fetch('/admin/bulk-attendance/{{ assessment.id }}',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({reg_ids:regIds,days:days})
+    });
+    const d=await r.json();
+    if(d.success){
+      location.reload();
+    } else {
+      alert('Error: '+(d.error||'Unknown'));
+    }
+  }catch(e){alert('Network error')}
+}
+</script>
 </body>
 </html>

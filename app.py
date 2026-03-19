@@ -1066,6 +1066,122 @@ def api_assessments():
     return jsonify([a.to_dict() for a in assessments])
 
 
+# ── Duplicate Detection ───────────────────────────────────────────
+
+def normalize_name(name):
+    """Normalize name for comparison: lowercase, strip, collapse spaces"""
+    return ' '.join((name or '').lower().strip().split())
+
+def names_similar(n1, n2):
+    """Check if two names are similar (same words in any order, or substring)"""
+    w1 = set(normalize_name(n1).split())
+    w2 = set(normalize_name(n2).split())
+    if not w1 or not w2:
+        return False
+    # Same words in any order
+    if w1 == w2:
+        return True
+    # One is subset of the other (catches "John Doe" vs "John Doe Okello")
+    if w1.issubset(w2) or w2.issubset(w1):
+        return True
+    # High overlap (e.g. 2 out of 3 words match)
+    overlap = len(w1 & w2)
+    total = max(len(w1), len(w2))
+    if total >= 2 and overlap >= total - 1:
+        return True
+    return False
+
+
+@app.route('/admin/duplicates/<int:assessment_id>')
+@login_required
+def admin_duplicates(assessment_id):
+    """Detect duplicate phone numbers and similar names"""
+    # Phone duplicates
+    phone_dupes = db.session.query(
+        Registration.mobile_number,
+        db.func.count(Registration.id).label('cnt')
+    ).filter_by(assessment_id=assessment_id
+    ).group_by(Registration.mobile_number
+    ).having(db.func.count(Registration.id) > 1).all()
+
+    phone_results = []
+    for phone, cnt in phone_dupes:
+        regs = Registration.query.filter_by(
+            assessment_id=assessment_id, mobile_number=phone
+        ).all()
+        phone_results.append({
+            'mobile_number': phone,
+            'count': cnt,
+            'registrations': [{'id': r.id, 'name': r.participant_name,
+                              'facility': r.facility, 'district': r.district} for r in regs]
+        })
+
+    # Name duplicates (fuzzy) - group by facility to limit comparisons
+    all_regs = Registration.query.filter_by(assessment_id=assessment_id).all()
+    name_results = []
+    seen_pairs = set()
+    for i, r1 in enumerate(all_regs):
+        for r2 in all_regs[i+1:]:
+            pair_key = tuple(sorted([r1.id, r2.id]))
+            if pair_key in seen_pairs:
+                continue
+            if normalize_name(r1.participant_name) == normalize_name(r2.participant_name):
+                match_type = 'exact'
+            elif names_similar(r1.participant_name, r2.participant_name):
+                match_type = 'similar'
+            else:
+                continue
+            seen_pairs.add(pair_key)
+            name_results.append({
+                'match_type': match_type,
+                'reg1': {'id': r1.id, 'name': r1.participant_name,
+                         'facility': r1.facility, 'phone': r1.mobile_number},
+                'reg2': {'id': r2.id, 'name': r2.participant_name,
+                         'facility': r2.facility, 'phone': r2.mobile_number}
+            })
+            # Limit to 50 name matches to avoid overload
+            if len(name_results) >= 50:
+                break
+        if len(name_results) >= 50:
+            break
+
+    return jsonify({
+        'phone_duplicates': phone_results,
+        'name_duplicates': name_results
+    })
+
+
+# ── Bulk Attendance Edit ──────────────────────────────────────────
+
+@app.route('/admin/bulk-attendance/<int:assessment_id>', methods=['POST'])
+@login_required
+def bulk_attendance(assessment_id):
+    """Bulk update attendance days for multiple registrations"""
+    try:
+        data = request.get_json()
+        reg_ids = data.get('reg_ids', [])
+        days = data.get('days', {})  # {day_num: true/false}
+        if not reg_ids or not days:
+            return jsonify({'success': False, 'error': 'No registrations or days specified'}), 400
+
+        updated = 0
+        for reg_id in reg_ids:
+            reg = Registration.query.filter_by(id=reg_id, assessment_id=assessment_id).first()
+            if not reg:
+                continue
+            for day_str, value in days.items():
+                day_num = int(day_str)
+                if 1 <= day_num <= 30:
+                    setattr(reg, f'day{day_num}', bool(value))
+            updated += 1
+
+        db.session.commit()
+        return jsonify({'success': True, 'updated': updated})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
 @app.route('/healthz')
 def healthz():
     return jsonify(status='ok')

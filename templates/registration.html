@@ -97,6 +97,9 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
 <!-- Persistent completed facilities banner -->
 <div id="completedBanners"></div>
 
+<!-- Offline queue banner -->
+<div id="queueBanner" style="display:none;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:12px 18px;margin-bottom:16px;font-size:13px;color:#92400E;animation:slideIn .3s ease"></div>
+
 <div id="fAlert" class="alert"></div>
 
 <div class="card teal-border">
@@ -151,12 +154,18 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
 <script>
 const CAMPAIGN_DAYS = {{ campaign_days }};
 const ASSESSMENT_ID = {{ assessment.id }};
-const CK = 'chai_completed_'+ASSESSMENT_ID; // localStorage key for completed facilities
+const CK = 'chai_completed_'+ASSESSMENT_ID;
+const QK = 'chai_offlineQ_'+ASSESSMENT_ID;
 let submitted = [];
 let lastFacility = '';
 
+// ── Completed facilities (persistent) ──
 function getCompleted(){try{return JSON.parse(localStorage.getItem(CK)||'[]')}catch(e){return[]}}
 function saveCompleted(list){localStorage.setItem(CK,JSON.stringify(list))}
+
+// ── Offline queue (persistent) ──
+function getQueue(){try{return JSON.parse(localStorage.getItem(QK)||'[]')}catch(e){return[]}}
+function saveQueue(q){localStorage.setItem(QK,JSON.stringify(q))}
 
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
 function showAlert(msg,type){const el=document.getElementById('fAlert');el.className='alert alert-'+type;el.innerHTML=msg;el.style.display='block';if(type!=='sending')setTimeout(()=>el.style.display='none',5000)}
@@ -166,8 +175,46 @@ function updNet(){
   const on=navigator.onLine;const el=document.getElementById('netBadge');
   el.className='net-badge '+(on?'on':'off');
   el.innerHTML='<span>&#9679;</span> <span>'+(on?'Online':'Offline')+'</span>';
+  updQueueBanner();
 }
-window.addEventListener('online',updNet);window.addEventListener('offline',updNet);
+window.addEventListener('online',function(){updNet();flushQueue()});
+window.addEventListener('offline',updNet);
+
+function updQueueBanner(){
+  const q=getQueue();
+  const el=document.getElementById('queueBanner');
+  if(q.length>0){
+    el.style.display='block';
+    el.innerHTML='<strong>'+q.length+' participant'+(q.length>1?'s':'')+' queued offline.</strong> '+(navigator.onLine?'Syncing now...':'Will auto-send when back online.');
+  } else {
+    el.style.display='none';
+  }
+}
+
+async function flushQueue(){
+  const q=getQueue();
+  if(!q.length||!navigator.onLine) return;
+  let remaining=[];
+  for(const item of q){
+    try{
+      const r=await fetch('/submit/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participants:[item.payload],assessment_id:ASSESSMENT_ID})});
+      const d=await r.json();
+      if(d.success){
+        // Update matching submitted entry
+        const match=submitted.find(s=>s.status==='queued'&&s.ph===item.pData.ph&&s.nm===item.pData.nm);
+        if(match){match.status='sent';lastFacility=match.fac}
+        showAlert('\u2705 Offline entry "'+esc(item.pData.nm)+'" synced!','success');
+      } else {
+        remaining.push(item);
+      }
+    }catch(e){
+      remaining.push(item);
+    }
+  }
+  saveQueue(remaining);
+  updFieldTable();
+  updQueueBanner();
+}
 
 function renderCompletedBanners(){
   const list=getCompleted();
@@ -198,6 +245,17 @@ function buildTableHeaders(){
 }
 function validatePhone(v){return /^7\d{8}$/.test(v.replace(/\s/g,''))}
 
+// ── Duplicate detection (client-side) ──
+function checkDuplicate(ph,nm){
+  const fullPhone='+256'+ph;
+  const phoneDupe=submitted.find(s=>(s.status==='sent'||s.status==='queued')&&s.ph===fullPhone);
+  if(phoneDupe) return 'Phone number '+fullPhone+' was already submitted for "'+phoneDupe.nm+'". Submit anyway?';
+  const nameLower=nm.toLowerCase().trim();
+  const nameDupe=submitted.find(s=>(s.status==='sent'||s.status==='queued')&&s.nm.toLowerCase().trim()===nameLower);
+  if(nameDupe) return 'Participant "'+nm+'" appears to be already submitted. Submit anyway?';
+  return null;
+}
+
 async function addFieldP(){
   const nm=document.getElementById('fName').value.trim(),cd=document.getElementById('fCadre').value.trim(),
   dist=document.getElementById('fDistrict').value.trim(),fac=document.getElementById('fFacility').value.trim(),
@@ -209,6 +267,10 @@ async function addFieldP(){
   let days=[];for(let i=1;i<=CAMPAIGN_DAYS;i++){if(document.getElementById('fd'+i)&&document.getElementById('fd'+i).checked)days.push(i)}
   if(!days.length){showAlert('Please select at least one attendance day','error');return}
 
+  // Duplicate check
+  const dupeMsg=checkDuplicate(ph,nm);
+  if(dupeMsg&&!confirm(dupeMsg)) return;
+
   const att={};for(let i=1;i<=CAMPAIGN_DAYS;i++) att[i]=days.includes(i);
   const pData={nm,cd,dist,fac,ph:'+256'+ph,momo,att,regDate};
 
@@ -217,35 +279,60 @@ async function addFieldP(){
 
   const btn=document.getElementById('addBtn');
   btn.disabled=true;btn.innerHTML='&#8987; Sending...';
-  showAlert('Sending participant data to server...','sending');
 
   const idx=submitted.length;
+
+  // If offline, queue immediately
+  if(!navigator.onLine){
+    submitted.push({...pData,status:'queued'});
+    const q=getQueue();q.push({payload,pData});saveQueue(q);
+    updFieldTable();updQueueBanner();
+    clearForm();
+    btn.disabled=false;btn.innerHTML='&#10133; Add Participant';
+    showAlert('\u23F3 '+nm+' queued offline. Will sync when back online.','sending');
+    return;
+  }
+
+  showAlert('Sending participant data to server...','sending');
   submitted.push({...pData,status:'sending'});
   updFieldTable();
 
   try{
-    if(!navigator.onLine) throw new Error('You are offline');
     const r=await fetch('/submit/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participants:[payload],assessment_id:ASSESSMENT_ID})});
     const d=await r.json();
     if(d.success){
       submitted[idx].status='sent';
       lastFacility=fac;
       updFieldTable();
-      ['fName','fCadre','fFacility','fPhone','fMomoName'].forEach(id=>document.getElementById(id).value='');
-      for(let i=1;i<=CAMPAIGN_DAYS;i++){const cb=document.getElementById('fd'+i);if(cb)cb.checked=false}
-      updDayPreview();
+      clearForm();
       showAlert('\u2705 '+nm+' submitted successfully!','success');
     } else {
-      submitted[idx].status='failed';
-      updFieldTable();
-      showAlert('Error: '+(d.error||'Unknown'),'error');
+      // Server error — queue for retry
+      submitted[idx].status='queued';
+      const q=getQueue();q.push({payload,pData});saveQueue(q);
+      updFieldTable();updQueueBanner();
+      clearForm();
+      btn.disabled=false;btn.innerHTML='&#10133; Add Participant';
+      showAlert('\u26A0 Server error. '+nm+' queued for retry.','error');
+      return;
     }
   }catch(e){
-    submitted[idx].status='failed';
-    updFieldTable();
-    showAlert('Network error: '+e.message+'. Please try again.','error');
+    // Network error — queue for retry
+    submitted[idx].status='queued';
+    const q=getQueue();q.push({payload,pData});saveQueue(q);
+    updFieldTable();updQueueBanner();
+    clearForm();
+    btn.disabled=false;btn.innerHTML='&#10133; Add Participant';
+    showAlert('\u23F3 Network error. '+nm+' queued offline. Will sync automatically.','sending');
+    return;
   }
   btn.disabled=false;btn.innerHTML='&#10133; Add Participant';
+}
+
+function clearForm(){
+  ['fName','fCadre','fFacility','fPhone','fMomoName'].forEach(id=>document.getElementById(id).value='');
+  for(let i=1;i<=CAMPAIGN_DAYS;i++){const cb=document.getElementById('fd'+i);if(cb)cb.checked=false}
+  updDayPreview();
 }
 
 function updFieldTable(){
@@ -254,6 +341,7 @@ function updFieldTable(){
     let dc='';for(let d=1;d<=CAMPAIGN_DAYS;d++){const c=p.att[d];dc+='<td style="text-align:center;font-size:18px;'+(c?'color:#059669':'color:#D1D5DB')+'">'+(c?'\u2611':'\u2610')+'</td>';}
     let statusHtml='';
     if(p.status==='sent') statusHtml='<span class="status-sent">\u2705 Sent</span>';
+    else if(p.status==='queued') statusHtml='<span style="color:#92400E;font-weight:600;font-size:11px">\u23F3 Queued</span>';
     else if(p.status==='failed') statusHtml='<span class="status-fail">\u274C Failed</span>';
     else statusHtml='<span class="status-sending">\u23F3 Sending...</span>';
     tb.innerHTML+='<tr><td style="text-align:center">'+(i+1)+'</td><td>'+esc(p.nm)+'</td><td>'+esc(p.cd)+'</td><td>'+esc(p.fac)+'</td><td>'+esc(p.dist)+'</td><td>'+esc(p.ph)+'</td><td>'+esc(p.momo)+'</td>'+dc+'<td>'+esc(p.regDate)+'</td><td>'+statusHtml+'</td></tr>';
@@ -303,7 +391,15 @@ function completeFacility(){
 
 document.getElementById('fPhone').addEventListener('input',function(e){let v=e.target.value;if(v.startsWith('0'))e.target.value=v.substring(1);if(v.length>9)e.target.value=v.substring(0,9)});
 
-buildDayCheckboxes();updFieldTable();updNet();renderCompletedBanners();
+// Restore queued items from localStorage on page load
+(function restoreQueue(){
+  const q=getQueue();
+  q.forEach(item=>{submitted.push({...item.pData,status:'queued'})});
+})();
+
+buildDayCheckboxes();updFieldTable();updNet();renderCompletedBanners();updQueueBanner();
+// Try to flush queue if online
+if(navigator.onLine) setTimeout(flushQueue,1000);
 </script>
 </body>
 </html>
