@@ -1,8 +1,9 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, g
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import io
 import os
+import re
 from functools import wraps
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -34,6 +35,24 @@ db = SQLAlchemy(app)
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
+# Session timeout (30 minutes)
+SESSION_TIMEOUT = int(os.environ.get('SESSION_TIMEOUT_MINUTES', 30))
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=SESSION_TIMEOUT)
+
+
+@app.before_request
+def check_session_timeout():
+    """Auto-logout after inactivity"""
+    if 'admin_logged_in' in session:
+        last_active = session.get('last_active')
+        if last_active:
+            last_dt = datetime.fromisoformat(last_active)
+            if datetime.utcnow() - last_dt > timedelta(minutes=SESSION_TIMEOUT):
+                session.clear()
+                flash('Session expired due to inactivity. Please log in again.', 'warning')
+                return redirect(url_for('admin_login'))
+        session['last_active'] = datetime.utcnow().isoformat()
+
 
 def ordinal(n):
     ords = ['', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th']
@@ -41,6 +60,34 @@ def ordinal(n):
 
 
 # ── Models ──────────────────────────────────────────────────────────
+
+class AuditLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    assessment_id = db.Column(db.Integer, nullable=True)
+    action = db.Column(db.String(50), nullable=False)  # create, edit, delete, lock, unlock, clear
+    entity_type = db.Column(db.String(50), nullable=False)  # registration, bank_detail, assessment
+    entity_id = db.Column(db.Integer, nullable=True)
+    details = db.Column(db.Text, default='')
+    performed_by = db.Column(db.String(100), default='system')
+    performed_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+def log_audit(assessment_id, action, entity_type, entity_id=None, details=''):
+    """Log an audit trail entry"""
+    try:
+        entry = AuditLog(
+            assessment_id=assessment_id,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            details=details,
+            performed_by=session.get('admin_username', 'field_user')
+        )
+        db.session.add(entry)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
 
 class Assessment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -51,6 +98,7 @@ class Assessment(db.Model):
     pin = db.Column(db.String(10), nullable=False)
     created_by = db.Column(db.String(100), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
+    is_locked = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     registrations = db.relationship('Registration', backref='assessment', lazy=True)
     bank_details = db.relationship('BankDetail', backref='assessment', lazy=True)
@@ -140,6 +188,8 @@ class Registration(db.Model):
     day30 = db.Column(db.Boolean, default=False)
     mobile_number = db.Column(db.String(15), nullable=False)
     mm_registered_names = db.Column(db.String(200), nullable=False)
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def get_day(self, n):
@@ -160,6 +210,8 @@ class Registration(db.Model):
             'registration_date': self.registration_date.strftime('%Y-%m-%d'),
             'mobile_number': self.mobile_number,
             'mm_registered_names': self.mm_registered_names,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
             'submitted_at': self.submitted_at.strftime('%Y-%m-%d %H:%M:%S')
         }
         for i in range(1, 31):
@@ -167,9 +219,70 @@ class Registration(db.Model):
         return d
 
 
+VALID_PHONE_RE = re.compile(r'^\+256[0-9]{9}$')
+
+VALID_DISTRICTS = {
+    'Abim District','Adjumani District','Agago District','Alebtong District','Amolatar District',
+    'Amudat District','Amuria District','Amuru District','Apac District','Arua City District',
+    'Arua District','Budaka District','Bududa District','Bugiri District','Bugweri District',
+    'Buhweju District','Buikwe District','Bukedea District','Bukomansimbi District','Bukwo District',
+    'Bulambuli District','Buliisa District','Bundibugyo District','Bunyangabu District',
+    'Bushenyi District','Busia District','Butaleja District','Butambala District','Butebo District',
+    'Buvuma District','Buyende District','Dokolo District','Fort Portal City District',
+    'Gomba District','Gulu City District','Gulu District','Hoima City District','Hoima District',
+    'Ibanda District','Iganga District','Isingiro District','Jinja City District','Jinja District',
+    'Kaabong District','Kabale District','Kabarole District','Kaberamaido District','Kagadi District',
+    'Kakumiro District','Kalaki District','Kalangala District','Kaliro District','Kalungu District',
+    'Kampala District','Kamuli District','Kamwenge District','Kanungu District','Kapchorwa District',
+    'Kapelebyong District','Karenga District','Kasese District','Kassanda District',
+    'Katakwi District','Kayunga District','Kazo District','Kibaale District','Kiboga District',
+    'Kibuku District','Kikuube District','Kiruhura District','Kiryandongo District','Kisoro District',
+    'Kitagwenda District','Kitgum District','Koboko District','Kole District','Kotido District',
+    'Kumi District','Kwania District','Kween District','Kyankwanzi District','Kyegegwa District',
+    'Kyenjojo District','Kyotera District','Lamwo District','Lira City District','Lira District',
+    'Luuka District','Luwero District','Lwengo District','Lyantonde District','Madi-Okollo District',
+    'Manafwa District','Maracha District','Masaka City District','Masaka District','Masindi District',
+    'Mayuge District','Mbale City District','Mbale District','Mbarara City District',
+    'Mbarara District','Mitooma District','Mityana District','Moroto District','Moyo District',
+    'Mpigi District','Mubende District','Mukono District','Nabilatuk District',
+    'Nakapiripirit District','Nakaseke District','Nakasongola District','Namayingo District',
+    'Namisindwa District','Namutumba District','Napak District','Nebbi District','Ngora District',
+    'Ntoroko District','Ntungamo District','Nwoya District','Obongi District','Omoro District',
+    'Otuke District','Oyam District','Pader District','Pakwach District','Pallisa District',
+    'Rakai District','Rubanda District','Rubirizi District','Rukiga District','Rukungiri District',
+    'Rwampara District','Sembabule District','Serere District','Sheema District','Sironko District',
+    'Soroti City District','Soroti District','Terego District','Tororo District','Wakiso District',
+    'Yumbe District','Zombo District'
+}
+
+
+def validate_participant(p):
+    """Server-side validation. Returns error string or None."""
+    name = (p.get('participant_name') or '').strip()
+    if not name or len(name) < 2:
+        return 'Participant name is required (min 2 characters)'
+    if not (p.get('cadre') or '').strip():
+        return 'Cadre is required'
+    district = (p.get('district') or '').strip()
+    if not district:
+        return 'District is required'
+    if district not in VALID_DISTRICTS:
+        return f'Invalid district: {district}'
+    if not (p.get('facility') or '').strip():
+        return 'Facility is required'
+    phone = (p.get('mobile_number') or '').strip()
+    if not VALID_PHONE_RE.match(phone):
+        return f'Invalid phone number format: {phone}. Expected +256XXXXXXXXX'
+    if not (p.get('mm_registered_names') or '').strip():
+        return 'MoMo registered names required'
+    if not p.get('registration_date'):
+        return 'Registration date is required'
+    return None
+
+
 with app.app_context():
     db.create_all()
-    # Migrate: add day6–day30 columns if they don't exist
+    # Migrate: add new columns if they don't exist
     if DATABASE_URL.startswith('postgresql'):
         try:
             for day_num in range(6, 31):
@@ -177,6 +290,14 @@ with app.app_context():
                 db.session.execute(db.text(
                     f"ALTER TABLE registration ADD COLUMN IF NOT EXISTS {col} BOOLEAN DEFAULT FALSE"
                 ))
+            # GPS columns
+            db.session.execute(db.text(
+                "ALTER TABLE registration ADD COLUMN IF NOT EXISTS latitude FLOAT"))
+            db.session.execute(db.text(
+                "ALTER TABLE registration ADD COLUMN IF NOT EXISTS longitude FLOAT"))
+            # Lock column
+            db.session.execute(db.text(
+                "ALTER TABLE assessment ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE"))
             db.session.commit()
         except Exception:
             db.session.rollback()
@@ -232,6 +353,7 @@ def build_excel(registrations, campaign_days, sheet_title="Registration & Attend
     for day in range(1, campaign_days + 1):
         headers.append(f'Day {day}')
     headers.append('Registration Date')
+    headers.append('GPS Location')
     ws.append(headers)
 
     for cell in ws[1]:
@@ -247,6 +369,8 @@ def build_excel(registrations, campaign_days, sheet_title="Registration & Attend
         for day in range(1, campaign_days + 1):
             row.append('\u2611' if getattr(reg, f'day{day}', False) else '\u2610')
         row.append(reg.registration_date.strftime('%Y-%m-%d') if reg.registration_date else '')
+        gps = f'{reg.latitude:.4f}, {reg.longitude:.4f}' if reg.latitude and reg.longitude else ''
+        row.append(gps)
         ws.append(row)
 
         row_num = idx + 1
@@ -262,7 +386,7 @@ def build_excel(registrations, campaign_days, sheet_title="Registration & Attend
         ws.row_dimensions[row_num].height = 22
 
     base_widths = [5, 25, 16, 21, 16, 21, 30]
-    all_widths = base_widths + [8] * campaign_days + [14]
+    all_widths = base_widths + [8] * campaign_days + [14, 22]
     for i, w in enumerate(all_widths, start=1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
     return wb
@@ -342,6 +466,8 @@ def submit_bulk_registration():
         data = request.get_json()
         participants = data.get('participants', [])
         assessment_id = data.get('assessment_id')
+        gps_lat = data.get('latitude')
+        gps_lng = data.get('longitude')
 
         if not participants:
             return jsonify({'success': False, 'error': 'No participants provided'}), 400
@@ -351,6 +477,16 @@ def submit_bulk_registration():
         assessment = Assessment.query.get(assessment_id)
         if not assessment:
             return jsonify({'success': False, 'error': 'Assessment not found'}), 404
+        if not assessment.is_active:
+            return jsonify({'success': False, 'error': 'This assessment is no longer active'}), 403
+        if assessment.is_locked:
+            return jsonify({'success': False, 'error': 'This assessment is locked. No more submissions are allowed.'}), 403
+
+        # Server-side validation
+        for p in participants:
+            err = validate_participant(p)
+            if err:
+                return jsonify({'success': False, 'error': err}), 400
 
         facility = participants[0].get('facility', 'Unknown')
         registrations = []
@@ -359,13 +495,15 @@ def submit_bulk_registration():
             reg_date = datetime.strptime(p.get('registration_date'), '%Y-%m-%d').date()
             registration = Registration(
                 assessment_id=assessment_id,
-                participant_name=p.get('participant_name'),
-                cadre=p.get('cadre'),
-                district=p.get('district'),
-                facility=p.get('facility'),
+                participant_name=p.get('participant_name', '').strip(),
+                cadre=p.get('cadre', '').strip(),
+                district=p.get('district', '').strip(),
+                facility=p.get('facility', '').strip(),
                 registration_date=reg_date,
-                mobile_number=p.get('mobile_number'),
-                mm_registered_names=p.get('mm_registered_names')
+                mobile_number=p.get('mobile_number', '').strip(),
+                mm_registered_names=p.get('mm_registered_names', '').strip(),
+                latitude=gps_lat,
+                longitude=gps_lng
             )
             for day_num in range(1, 31):
                 registration.set_day(day_num, p.get(f'day{day_num}', False))
@@ -373,6 +511,11 @@ def submit_bulk_registration():
             registrations.append(registration)
 
         db.session.commit()
+
+        for reg in registrations:
+            log_audit(assessment_id, 'create', 'registration', reg.id,
+                      f'Participant: {reg.participant_name}, Facility: {reg.facility}')
+
         return jsonify({
             'success': True, 'facility': facility,
             'count': len(registrations),
@@ -436,19 +579,27 @@ def submit_bank_details():
         assessment = Assessment.query.get(assessment_id)
         if not assessment:
             return jsonify({'success': False, 'error': 'Assessment not found'}), 404
+        if not assessment.is_active:
+            return jsonify({'success': False, 'error': 'This assessment is no longer active'}), 403
+        if assessment.is_locked:
+            return jsonify({'success': False, 'error': 'This assessment is locked. No more submissions allowed.'}), 403
         saved = []
         for m in members:
             bd = BankDetail(
                 assessment_id=assessment_id,
-                account_name=m.get('account_name', ''),
-                designation=m.get('designation', ''),
-                bank_name=m.get('bank_name', ''),
-                account_number=m.get('account_number', ''),
-                branch=m.get('branch', '')
+                account_name=(m.get('account_name') or '').strip(),
+                designation=(m.get('designation') or '').strip(),
+                bank_name=(m.get('bank_name') or '').strip(),
+                account_number=(m.get('account_number') or '').strip(),
+                branch=(m.get('branch') or '').strip()
             )
+            if not bd.account_name or not bd.bank_name or not bd.account_number:
+                return jsonify({'success': False, 'error': 'Account name, bank name, and account number are required'}), 400
             db.session.add(bd)
             saved.append(bd)
         db.session.commit()
+        for bd in saved:
+            log_audit(assessment_id, 'create', 'bank_detail', bd.id, f'Account: {bd.account_name}, Bank: {bd.bank_name}')
         return jsonify({'success': True, 'count': len(saved)})
     except Exception as e:
         db.session.rollback()
@@ -867,8 +1018,14 @@ def download_excel(assessment_id):
 @login_required
 def delete_registration(assessment_id, reg_id):
     registration = Registration.query.get_or_404(reg_id)
+    assessment = Assessment.query.get_or_404(assessment_id)
+    if assessment.is_locked:
+        flash('Assessment is locked. Cannot delete.', 'error')
+        return redirect(url_for('admin_dashboard', assessment_id=assessment_id))
+    name = registration.participant_name
     db.session.delete(registration)
     db.session.commit()
+    log_audit(assessment_id, 'delete', 'registration', reg_id, f'Deleted: {name}')
     flash('Registration deleted.', 'success')
     return redirect(url_for('admin_dashboard', assessment_id=assessment_id))
 
@@ -876,8 +1033,14 @@ def delete_registration(assessment_id, reg_id):
 @app.route('/admin/clear-all/<int:assessment_id>', methods=['POST'])
 @login_required
 def clear_all(assessment_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+    if assessment.is_locked:
+        flash('Assessment is locked. Cannot clear data.', 'error')
+        return redirect(url_for('admin_dashboard', assessment_id=assessment_id))
+    count = Registration.query.filter_by(assessment_id=assessment_id).count()
     Registration.query.filter_by(assessment_id=assessment_id).delete()
     db.session.commit()
+    log_audit(assessment_id, 'clear', 'registration', details=f'Cleared {count} registrations')
     flash('All registrations cleared.', 'success')
     return redirect(url_for('admin_dashboard', assessment_id=assessment_id))
 
@@ -961,9 +1124,15 @@ def admin_bank_details(assessment_id):
 @app.route('/admin/bank/delete/<int:assessment_id>/<int:bd_id>', methods=['POST'])
 @login_required
 def delete_bank_detail(assessment_id, bd_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+    if assessment.is_locked:
+        flash('Assessment is locked. Cannot delete.', 'error')
+        return redirect(url_for('admin_bank_details', assessment_id=assessment_id))
     bd = BankDetail.query.get_or_404(bd_id)
+    name = bd.account_name
     db.session.delete(bd)
     db.session.commit()
+    log_audit(assessment_id, 'delete', 'bank_detail', bd_id, f'Deleted: {name}')
     flash('Bank detail deleted.', 'success')
     return redirect(url_for('admin_bank_details', assessment_id=assessment_id))
 
@@ -971,8 +1140,14 @@ def delete_bank_detail(assessment_id, bd_id):
 @app.route('/admin/bank/clear/<int:assessment_id>', methods=['POST'])
 @login_required
 def clear_bank_details(assessment_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+    if assessment.is_locked:
+        flash('Assessment is locked. Cannot clear data.', 'error')
+        return redirect(url_for('admin_bank_details', assessment_id=assessment_id))
+    count = BankDetail.query.filter_by(assessment_id=assessment_id).count()
     BankDetail.query.filter_by(assessment_id=assessment_id).delete()
     db.session.commit()
+    log_audit(assessment_id, 'clear', 'bank_detail', details=f'Cleared {count} bank details')
     flash('All bank details cleared.', 'success')
     return redirect(url_for('admin_bank_details', assessment_id=assessment_id))
 
@@ -1020,7 +1195,12 @@ def edit_registration(assessment_id, reg_id):
     assessment = Assessment.query.get_or_404(assessment_id)
     reg = Registration.query.get_or_404(reg_id)
 
+    if assessment.is_locked:
+        flash('Assessment is locked. Cannot edit.', 'error')
+        return redirect(url_for('admin_dashboard', assessment_id=assessment_id))
+
     if request.method == 'POST':
+        old_name = reg.participant_name
         reg.participant_name = request.form.get('participant_name', reg.participant_name)
         reg.cadre = request.form.get('cadre', reg.cadre)
         reg.district = request.form.get('district', reg.district)
@@ -1032,6 +1212,7 @@ def edit_registration(assessment_id, reg_id):
             reg.set_day(day_num, request.form.get(f'day{day_num}') == 'on')
 
         db.session.commit()
+        log_audit(assessment_id, 'edit', 'registration', reg_id, f'Edited: {old_name}')
         flash('Registration updated.', 'success')
         return redirect(url_for('admin_dashboard', assessment_id=assessment_id))
 
@@ -1044,7 +1225,12 @@ def edit_bank_detail(assessment_id, bd_id):
     assessment = Assessment.query.get_or_404(assessment_id)
     bd = BankDetail.query.get_or_404(bd_id)
 
+    if assessment.is_locked:
+        flash('Assessment is locked. Cannot edit.', 'error')
+        return redirect(url_for('admin_bank_details', assessment_id=assessment_id))
+
     if request.method == 'POST':
+        old_name = bd.account_name
         bd.account_name = request.form.get('account_name', bd.account_name)
         bd.designation = request.form.get('designation', bd.designation)
         bd.bank_name = request.form.get('bank_name', bd.bank_name)
@@ -1052,6 +1238,7 @@ def edit_bank_detail(assessment_id, bd_id):
         bd.branch = request.form.get('branch', bd.branch)
 
         db.session.commit()
+        log_audit(assessment_id, 'edit', 'bank_detail', bd_id, f'Edited: {old_name}')
         flash('Bank detail updated.', 'success')
         return redirect(url_for('admin_bank_details', assessment_id=assessment_id))
 
@@ -1158,9 +1345,13 @@ def admin_duplicates(assessment_id):
 def bulk_attendance(assessment_id):
     """Bulk update attendance days for multiple registrations"""
     try:
+        assessment = Assessment.query.get_or_404(assessment_id)
+        if assessment.is_locked:
+            return jsonify({'success': False, 'error': 'Assessment is locked'}), 403
+
         data = request.get_json()
         reg_ids = data.get('reg_ids', [])
-        days = data.get('days', {})  # {day_num: true/false}
+        days = data.get('days', {})
         if not reg_ids or not days:
             return jsonify({'success': False, 'error': 'No registrations or days specified'}), 400
 
@@ -1176,10 +1367,39 @@ def bulk_attendance(assessment_id):
             updated += 1
 
         db.session.commit()
+        day_list = ', '.join([f'Day {k}={"Present" if v else "Absent"}' for k, v in days.items()])
+        log_audit(assessment_id, 'bulk_edit', 'registration',
+                  details=f'Bulk updated {updated} registrations: {day_list}')
         return jsonify({'success': True, 'updated': updated})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 400
+
+
+# ── Lock/Unlock Assessment ────────────────────────────────────────
+
+@app.route('/admin/assessments/<int:assessment_id>/lock', methods=['POST'])
+@login_required
+def toggle_lock(assessment_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+    assessment.is_locked = not assessment.is_locked
+    db.session.commit()
+    action = 'lock' if assessment.is_locked else 'unlock'
+    log_audit(assessment_id, action, 'assessment', assessment_id,
+              f'Assessment {"locked" if assessment.is_locked else "unlocked"}')
+    flash(f'Assessment {"locked" if assessment.is_locked else "unlocked"}.', 'success')
+    return redirect(url_for('admin_settings', assessment_id=assessment_id))
+
+
+# ── Audit Log Viewer ──────────────────────────────────────────────
+
+@app.route('/admin/audit/<int:assessment_id>')
+@login_required
+def admin_audit_log(assessment_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+    logs = AuditLog.query.filter_by(assessment_id=assessment_id).order_by(
+        AuditLog.performed_at.desc()).limit(200).all()
+    return render_template('admin_audit.html', assessment=assessment, logs=logs)
 
 
 @app.route('/healthz')

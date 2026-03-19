@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHAI Uganda - Audit Log - {{ assessment.name }}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:#1F2937}
+.container{max-width:1200px;margin:0 auto;padding:16px}
+.header{background:linear-gradient(135deg,#0F5B5C,#0A3D3E);color:white;padding:24px;border-radius:12px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.header h1{font-family:'DM Sans',sans-serif;font-size:22px}
+.header .sub{font-size:12px;opacity:.7}
+.header-links{display:flex;gap:16px;align-items:center}
+.header-links a{color:#A7F3D0;font-size:13px;text-decoration:none;font-weight:500}
+.card{background:white;padding:24px;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;border:1px solid #E5E7EB}
+.card h2{color:#0A3D3E;font-size:18px;margin-bottom:16px;font-family:'DM Sans',sans-serif}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead{background:#0F5B5C;color:white}
+th,td{padding:10px 12px;text-align:left;border:1px solid #E5E7EB}
+th{font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+tbody tr:nth-child(even){background:#F9FAFB}
+tbody tr:hover{background:#E8F4F4}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase}
+.badge-create{background:#D1FAE5;color:#065F46}
+.badge-edit{background:#E0F2FE;color:#075985}
+.badge-delete{background:#FEE2E2;color:#991B1B}
+.badge-clear{background:#FEE2E2;color:#991B1B}
+.badge-lock{background:#FEF3C7;color:#92400E}
+.badge-unlock{background:#D1FAE5;color:#065F46}
+.badge-bulk_edit{background:#EDE9FE;color:#5B21B6}
+.empty{text-align:center;padding:40px;color:#9CA3AF}
+</style>
+</head>
+<body>
+<div class="container">
+ <div class="header">
+  <div>
+   <h1>Audit Log</h1>
+   <div class="sub">{{ assessment.name }}</div>
+  </div>
+  <div class="header-links">
+   <a href="{{ url_for('admin_dashboard', assessment_id=assessment.id) }}">Dashboard</a>
+   <a href="{{ url_for('admin_settings', assessment_id=assessment.id) }}">Settings</a>
+   <a href="{{ url_for('admin_assessments') }}">&larr; All Assessments</a>
+  </div>
+ </div>
+
+ <div class="card">
+  <h2>Activity Log ({{ logs|length }} entries)</h2>
+  {% if logs %}
+  <div class="tbl-wrap">
+   <table>
+    <thead><tr><th>Date & Time</th><th>Action</th><th>Type</th><th>Details</th><th>By</th></tr></thead>
+    <tbody>
+    {% for log in logs %}
+    <tr>
+     <td>{{ log.performed_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+     <td><span class="badge badge-{{ log.action }}">{{ log.action }}</span></td>
+     <td>{{ log.entity_type }}</td>
+     <td>{{ log.details }}</td>
+     <td>{{ log.performed_by }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+   </table>
+  </div>
+  {% else %}
+  <div class="empty">No activity logged yet</div>
+  {% endif %}
+ </div>
+</div>
+</body>
+</html>

@@ -87,6 +87,28 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:
    </div>
   </div>
  </form>
+
+ <!-- Lock/Unlock -->
+ <div class="card" style="border-left:4px solid {{ '#DC2626' if assessment.is_locked else '#059669' }}">
+  <h2>{{ 'Assessment Locked' if assessment.is_locked else 'Assessment Unlocked' }}</h2>
+  <p style="font-size:13px;color:#6B7280;margin-bottom:16px">
+   {% if assessment.is_locked %}
+   This assessment is <strong style="color:#DC2626">locked</strong>. No new submissions, edits, or deletions are allowed. Unlock to allow changes.
+   {% else %}
+   This assessment is <strong style="color:#059669">unlocked</strong>. Submissions, edits, and deletions are permitted. Lock it to prevent any changes.
+   {% endif %}
+  </p>
+  <form method="POST" action="{{ url_for('toggle_lock', assessment_id=assessment.id) }}" onsubmit="return confirm('{{ 'Unlock this assessment? Submissions and edits will be allowed.' if assessment.is_locked else 'Lock this assessment? No more submissions or edits will be possible.' }}')">
+   <button type="submit" class="btn {{ 'btn-teal' if assessment.is_locked else 'btn-red' }}">
+    {{ 'Unlock Assessment' if assessment.is_locked else 'Lock Assessment' }}
+   </button>
+  </form>
+ </div>
+
+ <!-- Audit Log Link -->
+ <div style="text-align:center;margin-top:12px">
+  <a href="{{ url_for('admin_audit_log', assessment_id=assessment.id) }}" style="color:#0F5B5C;font-size:13px;font-weight:600;text-decoration:none">View Audit Log &rarr;</a>
+ </div>
 </div>
 </body>
 </html>

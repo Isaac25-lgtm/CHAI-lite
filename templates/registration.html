@@ -91,6 +91,7 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
  <div class="header-actions">
   <a href="{{ url_for('index') }}" class="home-btn">&#8592; Home</a>
   <div class="net-badge on" id="netBadge"><span>&#9679;</span> <span>Online</span></div>
+  <div id="gpsStatus"><span style="color:#FDE68A;font-size:11px">GPS loading...</span></div>
  </div>
 </div>
 
@@ -158,6 +159,22 @@ const CK = 'chai_completed_'+ASSESSMENT_ID;
 const QK = 'chai_offlineQ_'+ASSESSMENT_ID;
 let submitted = [];
 let lastFacility = '';
+let gpsLat = null, gpsLng = null;
+
+// Capture GPS on page load
+if(navigator.geolocation){
+  navigator.geolocation.getCurrentPosition(
+    function(pos){gpsLat=pos.coords.latitude;gpsLng=pos.coords.longitude;
+      const el=document.getElementById('gpsStatus');
+      if(el) el.innerHTML='<span style="color:#059669;font-size:11px">GPS: '+gpsLat.toFixed(4)+', '+gpsLng.toFixed(4)+'</span>';
+    },
+    function(){
+      const el=document.getElementById('gpsStatus');
+      if(el) el.innerHTML='<span style="color:#D4A843;font-size:11px">GPS unavailable</span>';
+    },
+    {enableHighAccuracy:true,timeout:10000}
+  );
+}
 
 // ── Completed facilities (persistent) ──
 function getCompleted(){try{return JSON.parse(localStorage.getItem(CK)||'[]')}catch(e){return[]}}
@@ -298,7 +315,7 @@ async function addFieldP(){
   updFieldTable();
 
   try{
-    const r=await fetch('/submit/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participants:[payload],assessment_id:ASSESSMENT_ID})});
+    const r=await fetch('/submit/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participants:[payload],assessment_id:ASSESSMENT_ID,latitude:gpsLat,longitude:gpsLng})});
     const d=await r.json();
     if(d.success){
       submitted[idx].status='sent';
