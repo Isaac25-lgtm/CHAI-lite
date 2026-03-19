@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>CHAI Uganda - {{ activity_name }}</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:#1F2937;-webkit-font-smoothing:antialiased}
 .h{display:none!important}
@@ -20,10 +20,11 @@ body{font-family:'DM Sans',sans-serif;background:#F0F4F4;min-height:100vh;color:
 .home-btn{background:rgba(255,255,255,.15);color:#A7F3D0;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
 .home-btn:hover{background:rgba(255,255,255,.25)}
 .net-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600}
-.net-badge.on{background:rgba(5,150,105,.25);color:#A7F3D0}.net-badge.off{background:rgba(220,38,38,.25);color:#FCA5A5}
+.net-badge.on{background:rgba(5,150,101,.25);color:#A7F3D0}.net-badge.off{background:rgba(220,38,38,.25);color:#FCA5A5}
 .alert{padding:14px 18px;border-radius:8px;margin-bottom:16px;animation:slideIn .3s ease;font-size:14px;display:none}
 .alert-success{background:#D1FAE5;border:1px solid #A7F3D0;color:#065F46}
 .alert-error{background:#FEE2E2;border:1px solid #FECACA;color:#991B1B}
+.alert-sending{background:#E0F2FE;border:1px solid #BAE6FD;color:#075985}
 .card{background:white;padding:24px;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;border:1px solid #E5E7EB}
 .card h2{color:#0A3D3E;font-size:18px;margin-bottom:16px;font-family:'DM Sans',sans-serif}
 .card.teal-border{border-left:4px solid #0F5B5C}
@@ -61,11 +62,11 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
 .instructions li{margin-bottom:5px}
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1F2937;color:white;padding:10px 24px;border-radius:30px;font-size:13px;font-weight:500;z-index:300;opacity:0;transition:.3s;pointer-events:none}
 .toast.show{opacity:1}
-.sent-list{background:#D1FAE5;border:1px solid #A7F3D0;border-radius:10px;padding:16px;margin-bottom:16px}
-.sent-list h3{font-size:14px;color:#065F46;margin-bottom:10px}
-.sent-item{background:white;border-radius:8px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;border:1px solid #A7F3D0}
 .day-preview{margin-top:8px;font-size:14px;letter-spacing:1px;color:#374151}
 .day-preview span{margin-right:10px}
+.status-sent{color:#059669;font-weight:600;font-size:11px}
+.status-fail{color:#DC2626;font-weight:600;font-size:11px}
+.status-sending{color:#2563EB;font-weight:600;font-size:11px}
 @media(max-width:600px){.row2{grid-template-columns:1fr}.action-row{flex-direction:column}.action-row .btn{min-width:100%}}
 </style>
 </head>
@@ -89,13 +90,6 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
 
 <div id="fAlert" class="alert"></div>
 
-<div id="fSentList" class="h">
- <div class="sent-list">
-  <h3>&#9989; Sent Submissions</h3>
-  <div id="fSentItems"></div>
- </div>
-</div>
-
 <div class="card teal-border">
  <h2>Enter Participant Information</h2>
  <div class="fg"><label>Participant's Name <span class="req">*</span></label><input type="text" id="fName" placeholder="Enter full name"></div>
@@ -105,7 +99,7 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
   <datalist id="distList">
    <option value="Abim District"><option value="Adjumani District"><option value="Agago District"><option value="Alebtong District"><option value="Amolatar District"><option value="Amudat District"><option value="Amuria District"><option value="Amuru District"><option value="Apac District"><option value="Arua City District"><option value="Arua District"><option value="Budaka District"><option value="Bududa District"><option value="Bugiri District"><option value="Bugweri District"><option value="Buhweju District"><option value="Buikwe District"><option value="Bukedea District"><option value="Bukomansimbi District"><option value="Bukwo District"><option value="Bulambuli District"><option value="Buliisa District"><option value="Bundibugyo District"><option value="Bunyangabu District"><option value="Bushenyi District"><option value="Busia District"><option value="Butaleja District"><option value="Butambala District"><option value="Butebo District"><option value="Buvuma District"><option value="Buyende District"><option value="Dokolo District"><option value="Fort Portal City District"><option value="Gomba District"><option value="Gulu City District"><option value="Gulu District"><option value="Hoima City District"><option value="Hoima District"><option value="Ibanda District"><option value="Iganga District"><option value="Isingiro District"><option value="Jinja City District"><option value="Jinja District"><option value="Kaabong District"><option value="Kabale District"><option value="Kabarole District"><option value="Kaberamaido District"><option value="Kagadi District"><option value="Kakumiro District"><option value="Kalaki District"><option value="Kalangala District"><option value="Kaliro District"><option value="Kalungu District"><option value="Kampala District"><option value="Kamuli District"><option value="Kamwenge District"><option value="Kanungu District"><option value="Kapchorwa District"><option value="Kapelebyong District"><option value="Karenga District"><option value="Kasese District"><option value="Kassanda District"><option value="Katakwi District"><option value="Kayunga District"><option value="Kazo District"><option value="Kibaale District"><option value="Kiboga District"><option value="Kibuku District"><option value="Kikuube District"><option value="Kiruhura District"><option value="Kiryandongo District"><option value="Kisoro District"><option value="Kitagwenda District"><option value="Kitgum District"><option value="Koboko District"><option value="Kole District"><option value="Kotido District"><option value="Kumi District"><option value="Kwania District"><option value="Kween District"><option value="Kyankwanzi District"><option value="Kyegegwa District"><option value="Kyenjojo District"><option value="Kyotera District"><option value="Lamwo District"><option value="Lira City District"><option value="Lira District"><option value="Luuka District"><option value="Luwero District"><option value="Lwengo District"><option value="Lyantonde District"><option value="Madi-Okollo District"><option value="Manafwa District"><option value="Maracha District"><option value="Masaka City District"><option value="Masaka District"><option value="Masindi District"><option value="Mayuge District"><option value="Mbale City District"><option value="Mbale District"><option value="Mbarara City District"><option value="Mbarara District"><option value="Mitooma District"><option value="Mityana District"><option value="Moroto District"><option value="Moyo District"><option value="Mpigi District"><option value="Mubende District"><option value="Mukono District"><option value="Nabilatuk District"><option value="Nakapiripirit District"><option value="Nakaseke District"><option value="Nakasongola District"><option value="Namayingo District"><option value="Namisindwa District"><option value="Namutumba District"><option value="Napak District"><option value="Nebbi District"><option value="Ngora District"><option value="Ntoroko District"><option value="Ntungamo District"><option value="Nwoya District"><option value="Obongi District"><option value="Omoro District"><option value="Otuke District"><option value="Oyam District"><option value="Pader District"><option value="Pakwach District"><option value="Pallisa District"><option value="Rakai District"><option value="Rubanda District"><option value="Rubirizi District"><option value="Rukiga District"><option value="Rukungiri District"><option value="Rwampara District"><option value="Sembabule District"><option value="Serere District"><option value="Sheema District"><option value="Sironko District"><option value="Soroti City District"><option value="Soroti District"><option value="Terego District"><option value="Tororo District"><option value="Wakiso District"><option value="Yumbe District"><option value="Zombo District">
   </datalist></div>
-  <div class="fg"><label>Facility <span class="req">*</span></label><input type="text" id="fFacility" placeholder="Facility name"></div>
+  <div class="fg"><label>Duty Station (Facility) <span class="req">*</span></label><input type="text" id="fFacility" placeholder="Facility name"></div>
  </div>
  <div class="fg"><label>Campaign Day Attendance <span class="req">*</span></label>
   <div class="cb-group" id="fDaysGroup"></div>
@@ -117,25 +111,23 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
  </div>
  <div class="fg"><label>Names Registered on Mobile Money (First &amp; Last Names) <span class="req">*</span></label><input type="text" id="fMomoName" placeholder="First and last name as on MoMo"></div>
  <div class="fg"><label>Registration Date <span class="req">*</span></label><input type="date" id="fRegDate" {% if start_date %}min="{{ start_date }}"{% endif %} {% if end_date %}max="{{ end_date }}"{% endif %}></div>
- <button class="btn btn-teal" onclick="addFieldP()">&#10133; Add Participant</button>
+ <button class="btn btn-teal" id="addBtn" onclick="addFieldP()">&#10133; Add Participant</button>
 </div>
 
 <div id="fTableWrap" class="card h" style="overflow-x:auto">
- <h2>Registered Participants <span class="count-badge" id="fCount">0</span></h2>
+ <h2>Submitted Participants <span class="count-badge" id="fCount">0</span></h2>
  <div style="overflow-x:auto"><table><thead><tr id="fTheadRow"></tr></thead><tbody id="fTbody"></tbody></table></div>
  <div class="action-row">
-  <button class="btn btn-green" onclick="submitAll()">&#128228; Submit to Server</button>
   <button class="btn btn-gray" onclick="dlFieldXLS()">&#128229; Download Excel</button>
-  <button class="btn" style="background:#EF4444;color:white" onclick="clearField()">&#128465; Clear All</button>
  </div>
 </div>
 
 <div id="fInstr" class="instructions"><h3>&#128204; Instructions:</h3><ol>
 <li>Fill in all required participant information above</li>
 <li>Select which days the participant attended</li>
-<li>Click "Add Participant" to add them to the list</li>
+<li>Click "Add Participant" — data is <strong>instantly sent</strong> to the manager</li>
 <li>Repeat for all participants</li>
-<li>Click "Submit to Server" to send the data</li>
+<li>Download Excel if you need a local copy</li>
 <li><strong>&#9745; = Attended | &#9744; = Absent</strong></li>
 </ol></div>
 
@@ -151,15 +143,11 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#E8F4F4}
 <script>
 const CAMPAIGN_DAYS = {{ campaign_days }};
 const ASSESSMENT_ID = {{ assessment.id }};
-const SK = 'chai_field_' + ASSESSMENT_ID;
-let participants = JSON.parse(localStorage.getItem(SK) || '[]');
-let sentList = JSON.parse(localStorage.getItem(SK + '_sent') || '[]');
+let submitted = []; // tracks successfully sent participants for display
 
-function save(){localStorage.setItem(SK, JSON.stringify(participants))}
-function saveSent(){localStorage.setItem(SK + '_sent', JSON.stringify(sentList))}
 function ord(n){const s=['','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th','13th','14th','15th','16th','17th','18th','19th','20th','21st','22nd','23rd','24th','25th','26th','27th','28th','29th','30th'];return s[n]||n+'th'}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
-function showAlert(msg,type){const el=document.getElementById('fAlert');el.className='alert alert-'+type;el.innerHTML=msg;el.style.display='block';setTimeout(()=>el.style.display='none',5000)}
+function showAlert(msg,type){const el=document.getElementById('fAlert');el.className='alert alert-'+type;el.innerHTML=msg;el.style.display='block';if(type!=='sending')setTimeout(()=>el.style.display='none',5000)}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 
 function updNet(){
@@ -171,76 +159,99 @@ window.addEventListener('online',updNet);window.addEventListener('offline',updNe
 
 function buildDayCheckboxes(){
   const g=document.getElementById('fDaysGroup');let h='';
-  for(let i=1;i<=CAMPAIGN_DAYS;i++) h+='<div class="cb-item"><input type="checkbox" id="fd'+i+'" value="'+i+'" onchange="updDayPreview()"><label for="fd'+i+'">'+ord(i)+'</label></div>';
+  for(let i=1;i<=CAMPAIGN_DAYS;i++) h+='<div class="cb-item"><input type="checkbox" id="fd'+i+'" value="'+i+'" onchange="updDayPreview()"><label for="fd'+i+'">Day '+i+'</label></div>';
   g.innerHTML=h;updDayPreview();buildTableHeaders();
 }
 function updDayPreview(){
   const el=document.getElementById('fDayPreview');let h='';
-  for(let i=1;i<=CAMPAIGN_DAYS;i++){const cb=document.getElementById('fd'+i);const c=cb&&cb.checked;h+='<span style="'+(c?'color:#059669;font-weight:700':'color:#D1D5DB')+'">'+(c?'\u2611':'\u2610')+' '+ord(i)+'</span>';}
+  for(let i=1;i<=CAMPAIGN_DAYS;i++){const cb=document.getElementById('fd'+i);const c=cb&&cb.checked;h+='<span style="'+(c?'color:#059669;font-weight:700':'color:#D1D5DB')+'">'+(c?'\u2611':'\u2610')+' Day '+i+'</span>';}
   el.innerHTML=h;
 }
 function buildTableHeaders(){
   const tr=document.getElementById('fTheadRow');
   let h='<th>No.</th><th>Participant\'s Name</th><th>Cadre</th><th>Duty Station (Facility)</th><th>District</th><th>Mobile Number Registered</th><th>Names Registered on Mobile Money</th>';
   for(let i=1;i<=CAMPAIGN_DAYS;i++) h+='<th>Day '+i+'</th>';
-  h+='<th>Registration Date</th><th>Action</th>';tr.innerHTML=h;
+  h+='<th>Registration Date</th><th>Status</th>';tr.innerHTML=h;
 }
 function validatePhone(v){return /^7\d{8}$/.test(v.replace(/\s/g,''))}
 
-function addFieldP(){
+async function addFieldP(){
   const nm=document.getElementById('fName').value.trim(),cd=document.getElementById('fCadre').value.trim(),
   dist=document.getElementById('fDistrict').value.trim(),fac=document.getElementById('fFacility').value.trim(),
-  ph=document.getElementById('fPhone').value.trim(),momo=document.getElementById('fMomoName').value.trim();
-  const regDate=document.getElementById('fRegDate').value;
+  ph=document.getElementById('fPhone').value.trim(),momo=document.getElementById('fMomoName').value.trim(),
+  regDate=document.getElementById('fRegDate').value;
   if(!nm||!cd||!dist||!fac||!ph||!momo||!regDate){showAlert('Please fill all required fields','error');return}
   if(!validatePhone(ph)){document.getElementById('fPhoneErr').style.display='block';return}
   document.getElementById('fPhoneErr').style.display='none';
   let days=[];for(let i=1;i<=CAMPAIGN_DAYS;i++){if(document.getElementById('fd'+i)&&document.getElementById('fd'+i).checked)days.push(i)}
   if(!days.length){showAlert('Please select at least one attendance day','error');return}
+
   const att={};for(let i=1;i<=CAMPAIGN_DAYS;i++) att[i]=days.includes(i);
-  participants.push({nm,cd,dist,fac,ph:'+256'+ph,momo,att,ts:Date.now(),regDate:regDate});
-  save();updFieldTable();
-  ['fName','fCadre','fFacility','fPhone','fMomoName'].forEach(id=>document.getElementById(id).value='');
-  for(let i=1;i<=CAMPAIGN_DAYS;i++){const cb=document.getElementById('fd'+i);if(cb)cb.checked=false}
-  updDayPreview();showAlert('\u2705 Participant added!','success');
+  const pData={nm,cd,dist,fac,ph:'+256'+ph,momo,att,regDate};
+
+  // Build server payload
+  const payload={participant_name:nm,cadre:cd,district:dist,facility:fac,registration_date:regDate,mobile_number:'+256'+ph,mm_registered_names:momo};
+  for(let d=1;d<=30;d++) payload['day'+d]=!!att[d];
+
+  // Disable button, show sending
+  const btn=document.getElementById('addBtn');
+  btn.disabled=true;btn.innerHTML='&#8987; Sending...';
+  showAlert('Sending participant data to server...','sending');
+
+  // Add to table immediately with "sending" status
+  const idx=submitted.length;
+  submitted.push({...pData,status:'sending'});
+  updFieldTable();
+
+  try{
+    if(!navigator.onLine) throw new Error('You are offline');
+    const r=await fetch('/submit/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participants:[payload],assessment_id:ASSESSMENT_ID})});
+    const d=await r.json();
+    if(d.success){
+      submitted[idx].status='sent';
+      updFieldTable();
+      // Clear form
+      ['fName','fCadre','fFacility','fPhone','fMomoName'].forEach(id=>document.getElementById(id).value='');
+      for(let i=1;i<=CAMPAIGN_DAYS;i++){const cb=document.getElementById('fd'+i);if(cb)cb.checked=false}
+      updDayPreview();
+      showAlert('\u2705 '+nm+' submitted successfully!','success');
+    } else {
+      submitted[idx].status='failed';
+      updFieldTable();
+      showAlert('Error: '+(d.error||'Unknown'),'error');
+    }
+  }catch(e){
+    submitted[idx].status='failed';
+    updFieldTable();
+    showAlert('Network error: '+e.message+'. Please try again.','error');
+  }
+  btn.disabled=false;btn.innerHTML='&#10133; Add Participant';
 }
-function delFieldP(i){if(confirm('Delete?')){participants.splice(i,1);save();updFieldTable()}}
 
 function updFieldTable(){
   const tb=document.getElementById('fTbody');tb.innerHTML='';
-  participants.forEach((p,i)=>{
+  submitted.forEach((p,i)=>{
     let dc='';for(let d=1;d<=CAMPAIGN_DAYS;d++){const c=p.att[d];dc+='<td style="text-align:center;font-size:18px;'+(c?'color:#059669':'color:#D1D5DB')+'">'+(c?'\u2611':'\u2610')+'</td>';}
-    tb.innerHTML+='<tr><td style="text-align:center">'+(i+1)+'</td><td>'+esc(p.nm)+'</td><td>'+esc(p.cd)+'</td><td>'+esc(p.fac)+'</td><td>'+esc(p.dist)+'</td><td>'+esc(p.ph)+'</td><td>'+esc(p.momo)+'</td>'+dc+'<td>'+(p.regDate||'')+'</td><td><button class="btn-red" onclick="delFieldP('+i+')">Delete</button></td></tr>';
+    let statusHtml='';
+    if(p.status==='sent') statusHtml='<span class="status-sent">\u2705 Sent</span>';
+    else if(p.status==='failed') statusHtml='<span class="status-fail">\u274C Failed</span>';
+    else statusHtml='<span class="status-sending">\u23F3 Sending...</span>';
+    tb.innerHTML+='<tr><td style="text-align:center">'+(i+1)+'</td><td>'+esc(p.nm)+'</td><td>'+esc(p.cd)+'</td><td>'+esc(p.fac)+'</td><td>'+esc(p.dist)+'</td><td>'+esc(p.ph)+'</td><td>'+esc(p.momo)+'</td>'+dc+'<td>'+esc(p.regDate)+'</td><td>'+statusHtml+'</td></tr>';
   });
-  document.getElementById('fCount').textContent=participants.length;
-  document.getElementById('fTableWrap').classList.toggle('h',!participants.length);
-  document.getElementById('fInstr').style.display=participants.length?'none':'block';
-}
-function clearField(){if(!participants.length)return;if(confirm('Clear all?')){participants=[];save();updFieldTable();showAlert('Cleared','success')}}
-
-async function submitAll(){
-  if(!participants.length){toast('Add participants first');return}
-  if(!navigator.onLine){toast('You are offline');return}
-  const payload=participants.map(p=>{const o={participant_name:p.nm,cadre:p.cd,district:p.dist,facility:p.fac,registration_date:p.regDate,mobile_number:p.ph,mm_registered_names:p.momo};for(let d=1;d<=30;d++)o['day'+d]=!!p.att[d];return o});
-  try{
-    const r=await fetch('/submit/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participants:payload,assessment_id:ASSESSMENT_ID})});
-    const d=await r.json();
-    if(d.success){
-      sentList.push({dist:participants[0]?.dist||'',fac:participants[0]?.fac||'',count:participants.length,ts:Date.now()});saveSent();
-      if(participants[0]?.fac) window.open('/download/facility/'+ASSESSMENT_ID+'/'+encodeURIComponent(participants[0].fac),'_blank');
-      participants=[];save();updFieldTable();updSentList();showAlert('\u2705 '+d.count+' participants submitted!','success');
-    } else showAlert('Error: '+(d.error||'Unknown'),'error');
-  }catch(e){showAlert('Network error','error')}
+  document.getElementById('fCount').textContent=submitted.filter(p=>p.status==='sent').length;
+  document.getElementById('fTableWrap').classList.toggle('h',!submitted.length);
+  document.getElementById('fInstr').style.display=submitted.length?'none':'block';
 }
 
 function dlFieldXLS(){
-  if(!participants.length){toast('Add participants first');return}
+  const sent=submitted.filter(p=>p.status==='sent');
+  if(!sent.length){toast('No submitted participants to download');return}
   const wb=XLSX.utils.book_new();
-  const hdr=['No.',"Participant\u2019s Name",'Cadre','Duty Station (Facility)','District','Mobile Number Registered','Names Registered on Mobile Money'];
+  const hdr=['No.',"\u2019Participant\u2019s Name",'Cadre','Duty Station (Facility)','District','Mobile Number Registered','Names Registered on Mobile Money'];
   for(let d=1;d<=CAMPAIGN_DAYS;d++) hdr.push('Day '+d);
   hdr.push('Registration Date');
   const rows=[hdr];
-  participants.forEach((p,i)=>{const row=[i+1,p.nm,p.cd,p.fac,p.dist,p.ph,p.momo];for(let d=1;d<=CAMPAIGN_DAYS;d++) row.push(p.att[d]?'\u2611':'\u2610');row.push(p.regDate||'');rows.push(row)});
+  sent.forEach((p,i)=>{const row=[i+1,p.nm,p.cd,p.fac,p.dist,p.ph,p.momo];for(let d=1;d<=CAMPAIGN_DAYS;d++) row.push(p.att[d]?'\u2611':'\u2610');row.push(p.regDate||'');rows.push(row)});
   const ws=XLSX.utils.aoa_to_sheet(rows);
   ws['!cols']=[{wch:5},{wch:25},{wch:16},{wch:21},{wch:16},{wch:21},{wch:30}];
   for(let d=0;d<CAMPAIGN_DAYS;d++) ws['!cols'].push({wch:8});
@@ -250,17 +261,9 @@ function dlFieldXLS(){
   showAlert('\u2705 Excel downloaded!','success');
 }
 
-function updSentList(){
-  const el=document.getElementById('fSentItems'),wrap=document.getElementById('fSentList');
-  if(!sentList.length){wrap.classList.add('h');return}
-  wrap.classList.remove('h');let h='';
-  sentList.forEach(s=>{h+='<div class="sent-item"><div><div style="font-size:13px;font-weight:600;color:#065F46">'+esc(s.dist)+' \u2014 '+esc(s.fac)+'</div><div style="font-size:11px;color:#6B7280">'+s.count+' participants \u00b7 '+new Date(s.ts).toLocaleDateString()+'</div></div><span style="font-size:10px;background:#D1FAE5;color:#059669;padding:2px 8px;border-radius:20px;font-weight:700">SENT</span></div>'});
-  el.innerHTML=h;
-}
-
 document.getElementById('fPhone').addEventListener('input',function(e){let v=e.target.value;if(v.startsWith('0'))e.target.value=v.substring(1);if(v.length>9)e.target.value=v.substring(0,9)});
 
-buildDayCheckboxes();updFieldTable();updSentList();updNet();
+buildDayCheckboxes();updFieldTable();updNet();
 </script>
 </body>
 </html>
