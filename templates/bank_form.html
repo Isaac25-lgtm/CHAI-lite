@@ -120,20 +120,18 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#FEF3C7}
 <div id="aTableWrap" class="card h" style="overflow-x:auto">
  <h2>Team Members <span class="count-badge" id="aCount">0</span></h2>
  <div style="overflow-x:auto"><table><thead><tr>
-  <th>No.</th><th>Participant's Name</th><th>Bank Account Name</th><th>Designation</th><th>Bank Name</th><th>Account Number</th><th>Bank Branch</th><th>Action</th>
+  <th>No.</th><th>Participant's Name</th><th>Bank Account Name</th><th>Designation</th><th>Bank Name</th><th>Account Number</th><th>Bank Branch</th><th>Status</th>
  </tr></thead><tbody id="aTbody"></tbody></table></div>
  <div class="action-row">
-  <button class="btn btn-green" onclick="submitAll()">&#128228; Submit to Server</button>
-  <button class="btn btn-gray" onclick="dlXLS()">&#128229; Download Excel</button>
-  <button class="btn" style="background:#EF4444;color:white" onclick="clearAll()">&#128465; Clear All</button>
+  <a id="dlExcelBtn" class="btn btn-gold h" style="text-decoration:none">&#128229; Download Payment Excel</a>
  </div>
 </div>
 
 <div id="aInstr" class="instructions"><h3>&#128204; Instructions:</h3><ol>
 <li>Enter your bank account details above</li>
-<li>Click "Add Team Member" to add to the list</li>
+<li>Click "Add Team Member" &mdash; it will be sent instantly</li>
 <li>Repeat for all assessment team members</li>
-<li>Click "Submit to Server" to send the payment file</li>
+<li>Download styled Excel anytime using the button below the table</li>
 <li>Per diem columns will be filled by the manager</li>
 </ol></div>
 
@@ -145,13 +143,14 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#FEF3C7}
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 const ASSESSMENT_ID = {{ assessment.id }};
 const SK = 'chai_bank_' + ASSESSMENT_ID;
 let members = JSON.parse(localStorage.getItem(SK) || '[]');
+let offlineQueue = JSON.parse(localStorage.getItem(SK + '_q') || '[]');
 
 function save(){localStorage.setItem(SK, JSON.stringify(members))}
+function saveQueue(){localStorage.setItem(SK + '_q', JSON.stringify(offlineQueue))}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
 function showAlert(msg,type){const el=document.getElementById('aAlert');el.className='alert alert-'+type;el.innerHTML=msg;el.style.display='block';setTimeout(()=>el.style.display='none',5000)}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
@@ -166,10 +165,35 @@ function updNet(){
   const on=navigator.onLine;const el=document.getElementById('netBadge');
   el.className='net-badge '+(on?'on':'off');
   el.innerHTML='<span>&#9679;</span> <span>'+(on?'Online':'Offline')+'</span>';
+  if(on) flushQueue();
 }
 window.addEventListener('online',updNet);window.addEventListener('offline',updNet);
 
-function addMember(){
+async function sendToServer(m, idx){
+  const payload=[{participant_name:m.partName||'',account_name:m.accName,designation:m.desig,bank_name:m.bankName,account_number:m.accNo,branch:m.branch}];
+  try{
+    const r=await fetch('/submit/bank',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({members:payload,assessment_id:ASSESSMENT_ID})});
+    const d=await r.json();
+    if(d.success){
+      members[idx].status='sent';save();updTable();
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+
+async function flushQueue(){
+  if(!offlineQueue.length) return;
+  const q=[...offlineQueue];offlineQueue=[];saveQueue();
+  for(const m of q){
+    members.push({...m,status:'sending'});save();updTable();
+    const idx=members.length-1;
+    const ok=await sendToServer(m,idx);
+    if(!ok){members[idx].status='queued';save();updTable();offlineQueue.push(m);saveQueue()}
+  }
+}
+
+async function addMember(){
   const partName=document.getElementById('aPartName').value.trim();
   const accName=document.getElementById('aAccName').value.trim();
   const desig=document.getElementById('aDesig').value.trim();
@@ -180,55 +204,50 @@ function addMember(){
   const branch=document.getElementById('aBranch').value.trim();
   if(!partName||!accName||!bankName||!accNo){showAlert('Please fill all required fields','error');return}
   if(bankSel==='Other'&&!otherBank){showAlert('Please enter the bank name','error');return}
-  members.push({partName,accName,desig,bankName,accNo,branch,ts:Date.now()});
-  save();updTable();
+
+  const m={partName,accName,desig,bankName,accNo,branch,ts:Date.now(),status:'sending'};
+
+  // Clear form immediately
   ['aPartName','aAccName','aDesig','aAccNo','aBranch','aOtherBank'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('aBankName').value='';
   document.getElementById('aOtherBank').style.display='none';
-  showAlert('\u2705 Team member added!','success');
-}
 
-function delMember(i){if(confirm('Delete this member?')){members.splice(i,1);save();updTable()}}
+  if(navigator.onLine){
+    members.push(m);save();updTable();
+    const idx=members.length-1;
+    const ok=await sendToServer(m,idx);
+    if(ok){
+      showAlert('\u2705 '+esc(partName)+' sent successfully!','success');
+    } else {
+      members[idx].status='queued';save();updTable();
+      offlineQueue.push(m);saveQueue();
+      showAlert('\u26A0 Could not reach server. '+esc(partName)+' queued for retry.','error');
+    }
+  } else {
+    m.status='queued';
+    members.push(m);save();updTable();
+    offlineQueue.push(m);saveQueue();
+    showAlert('\u26A0 Offline. '+esc(partName)+' queued \u2014 will send when back online.','error');
+  }
+}
 
 function updTable(){
   const tb=document.getElementById('aTbody');tb.innerHTML='';
   members.forEach((m,i)=>{
-    tb.innerHTML+='<tr><td>'+(i+1)+'</td><td>'+esc(m.partName||'')+'</td><td>'+esc(m.accName)+'</td><td>'+esc(m.desig)+'</td><td>'+esc(m.bankName)+'</td><td>'+esc(m.accNo)+'</td><td>'+esc(m.branch)+'</td><td><button class="btn-red" onclick="delMember('+i+')">Delete</button></td></tr>';
+    const st=m.status||'sent';
+    let badge='';
+    if(st==='sent') badge='<span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">Sent</span>';
+    else if(st==='sending') badge='<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">Sending...</span>';
+    else badge='<span style="background:#FEE2E2;color:#991B1B;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">Queued</span>';
+    tb.innerHTML+='<tr><td style="text-align:center">'+(i+1)+'</td><td>'+esc(m.partName||'')+'</td><td>'+esc(m.accName)+'</td><td>'+esc(m.desig)+'</td><td>'+esc(m.bankName)+'</td><td>'+esc(m.accNo)+'</td><td>'+esc(m.branch)+'</td><td style="text-align:center">'+badge+'</td></tr>';
   });
   document.getElementById('aCount').textContent=members.length;
   document.getElementById('aTableWrap').classList.toggle('h',!members.length);
   document.getElementById('aInstr').style.display=members.length?'none':'block';
-}
-
-function clearAll(){if(!members.length)return;if(confirm('Clear all?')){members=[];save();updTable();showAlert('Cleared','success')}}
-
-async function submitAll(){
-  if(!members.length){toast('Add members first');return}
-  if(!navigator.onLine){toast('You are offline');return}
-  const payload=members.map(m=>({participant_name:m.partName||'',account_name:m.accName,designation:m.desig,bank_name:m.bankName,account_number:m.accNo,branch:m.branch}));
-  try{
-    const r=await fetch('/submit/bank',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({members:payload,assessment_id:ASSESSMENT_ID})});
-    const d=await r.json();
-    if(d.success){
-      members=[];save();updTable();
-      showAlert('\u2705 '+d.count+' team members submitted!','success');
-    } else showAlert('Error: '+(d.error||'Unknown'),'error');
-  }catch(e){showAlert('Network error','error')}
-}
-
-function dlXLS(){
-  if(!members.length){toast('Add members first');return}
-  const wb=XLSX.utils.book_new();
-  const hdr=['No.',"Participant\u2019s Name",'Bank Account Name','Designation','Bank Name','Account Number','Bank Branch',
-    'Unit cost','# of Nights','Sub-Total','Unit cost','# of Nights','Sub-Total','SDA',
-    'Transport refund','Total Cost','Comments'];
-  const rows=[hdr];
-  members.forEach((m,i)=>{rows.push([i+1,m.partName||'',m.accName,m.desig,m.bankName,m.accNo,m.branch,'','','','','','','','','',''])});
-  const ws=XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols']=[{wch:5},{wch:24},{wch:16},{wch:18},{wch:16},{wch:15},{wch:10},{wch:12},{wch:11},{wch:10},{wch:12},{wch:11},{wch:9},{wch:15},{wch:13},{wch:21}];
-  XLSX.utils.book_append_sheet(wb,ws,'Payment Tracker');
-  XLSX.writeFile(wb,'CHAI_Payment_'+new Date().toISOString().slice(0,10)+'.xlsx');
-  showAlert('\u2705 Excel downloaded!','success');
+  // Show download button (server-side styled Excel)
+  const dlBtn=document.getElementById('dlExcelBtn');
+  if(members.length){dlBtn.classList.remove('h');dlBtn.href='/download/bank/'+ASSESSMENT_ID;}
+  else dlBtn.classList.add('h');
 }
 
 updTable();updNet();

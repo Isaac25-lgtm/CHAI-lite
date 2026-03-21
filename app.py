@@ -674,6 +674,24 @@ def submit_bank_details():
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
+@app.route('/download/bank/<int:assessment_id>')
+def download_bank_participant(assessment_id):
+    """Participant-facing bank Excel download (no login required)"""
+    assessment = Assessment.query.get_or_404(assessment_id)
+    bank_details = BankDetail.query.filter_by(assessment_id=assessment_id).order_by(BankDetail.submitted_at.desc()).all()
+    if not bank_details:
+        return jsonify({'success': False, 'error': 'No data found'}), 404
+    wb = build_bank_excel(bank_details)
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    safe_name = assessment.name.replace(' ', '_')
+    filename = f'CHAI_Payment_{safe_name}_{datetime.now().strftime("%Y-%m-%d")}.xlsx'
+    return send_file(output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True, download_name=filename)
+
+
 def build_bank_excel(bank_details, sheet_title="Payment Tracker"):
     wb = openpyxl.Workbook()
     ws = wb.active
