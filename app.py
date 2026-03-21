@@ -181,8 +181,40 @@ class BankDetail(db.Model):
     branch = db.Column(db.String(100), default='')
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Campaign day attendance (same as registration)
+    day1 = db.Column(db.Boolean, default=False)
+    day2 = db.Column(db.Boolean, default=False)
+    day3 = db.Column(db.Boolean, default=False)
+    day4 = db.Column(db.Boolean, default=False)
+    day5 = db.Column(db.Boolean, default=False)
+    day6 = db.Column(db.Boolean, default=False)
+    day7 = db.Column(db.Boolean, default=False)
+    day8 = db.Column(db.Boolean, default=False)
+    day9 = db.Column(db.Boolean, default=False)
+    day10 = db.Column(db.Boolean, default=False)
+    day11 = db.Column(db.Boolean, default=False)
+    day12 = db.Column(db.Boolean, default=False)
+    day13 = db.Column(db.Boolean, default=False)
+    day14 = db.Column(db.Boolean, default=False)
+    day15 = db.Column(db.Boolean, default=False)
+    day16 = db.Column(db.Boolean, default=False)
+    day17 = db.Column(db.Boolean, default=False)
+    day18 = db.Column(db.Boolean, default=False)
+    day19 = db.Column(db.Boolean, default=False)
+    day20 = db.Column(db.Boolean, default=False)
+    day21 = db.Column(db.Boolean, default=False)
+    day22 = db.Column(db.Boolean, default=False)
+    day23 = db.Column(db.Boolean, default=False)
+    day24 = db.Column(db.Boolean, default=False)
+    day25 = db.Column(db.Boolean, default=False)
+    day26 = db.Column(db.Boolean, default=False)
+    day27 = db.Column(db.Boolean, default=False)
+    day28 = db.Column(db.Boolean, default=False)
+    day29 = db.Column(db.Boolean, default=False)
+    day30 = db.Column(db.Boolean, default=False)
+
     def to_dict(self):
-        return {
+        d = {
             'id': self.id,
             'assessment_id': self.assessment_id,
             'participant_name': self.participant_name or '',
@@ -193,6 +225,9 @@ class BankDetail(db.Model):
             'branch': self.branch,
             'submitted_at': self.submitted_at.strftime('%Y-%m-%d %H:%M:%S')
         }
+        for i in range(1, 31):
+            d[f'day{i}'] = getattr(self, f'day{i}', False)
+        return d
 
 
 class Registration(db.Model):
@@ -353,6 +388,14 @@ with app.app_context():
             # Bank detail participant name
             db.session.execute(db.text(
                 "ALTER TABLE bank_detail ADD COLUMN IF NOT EXISTS participant_name VARCHAR(200) DEFAULT ''"))
+            # Bank detail day columns
+            for d in range(1, 31):
+                col = f'day{d}'
+                try:
+                    db.session.execute(db.text(
+                        f"ALTER TABLE bank_detail ADD COLUMN IF NOT EXISTS {col} BOOLEAN DEFAULT FALSE"))
+                except Exception:
+                    pass
             db.session.commit()
         except Exception:
             db.session.rollback()
@@ -630,7 +673,8 @@ def bank_form(assessment_id):
     if not assessment.is_active:
         flash('This assessment is no longer active.', 'error')
         return redirect(url_for('index'))
-    return render_template('bank_form.html', assessment=assessment)
+    return render_template('bank_form.html', assessment=assessment,
+                         campaign_days=assessment.campaign_days)
 
 
 @app.route('/submit/bank', methods=['POST'])
@@ -661,6 +705,8 @@ def submit_bank_details():
                 account_number=(m.get('account_number') or '').strip(),
                 branch=(m.get('branch') or '').strip()
             )
+            for d in range(1, 31):
+                setattr(bd, f'day{d}', bool(m.get(f'day{d}', False)))
             if not bd.participant_name or not bd.account_name or not bd.bank_name or not bd.account_number:
                 return jsonify({'success': False, 'error': 'Account name, bank name, and account number are required'}), 400
             db.session.add(bd)
@@ -681,7 +727,7 @@ def download_bank_participant(assessment_id):
     bank_details = BankDetail.query.filter_by(assessment_id=assessment_id).order_by(BankDetail.submitted_at.desc()).all()
     if not bank_details:
         return jsonify({'success': False, 'error': 'No data found'}), 404
-    wb = build_bank_excel(bank_details)
+    wb = build_bank_excel(bank_details, campaign_days=assessment.campaign_days)
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
@@ -692,7 +738,7 @@ def download_bank_participant(assessment_id):
         as_attachment=True, download_name=filename)
 
 
-def build_bank_excel(bank_details, sheet_title="Payment Tracker"):
+def build_bank_excel(bank_details, sheet_title="Payment Tracker", campaign_days=5):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = sheet_title
@@ -713,8 +759,20 @@ def build_bank_excel(bank_details, sheet_title="Payment Tracker"):
         top=Side(style='thin', color='000000'), bottom=Side(style='thin', color='000000'))
     empty_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
 
+    checked_font = Font(name="Calibri", size=14, bold=True, color="008000")
+    unchecked_font = Font(name="Calibri", size=14, color="AAAAAA")
+
+    # Base columns: No, Name, AccName, Desig, Bank, AccNo, Branch = 7 cols
+    # Then day columns (campaign_days)
+    # Then perdiem columns (10): Unit,Nights,Sub, Unit,Nights,Sub,SDA, Transport,Total,Comments
+    base_cols = 7
+    day_start = base_cols + 1  # col 8
+    perdiem_start = day_start + campaign_days
+    total_cols = perdiem_start + 9  # 10 perdiem cols
+
     # Row 1: PAYMENT DETAILS banner
-    ws.merge_cells('A1:Q1')
+    last_col_letter = openpyxl.utils.get_column_letter(total_cols)
+    ws.merge_cells(f'A1:{last_col_letter}1')
     title_cell = ws['A1']
     title_cell.value = "PAYMENT DETAILS"
     title_cell.fill = header_fill
@@ -727,34 +785,58 @@ def build_bank_excel(bank_details, sheet_title="Payment Tracker"):
     ws.row_dimensions[2].height = 8
 
     # Row 3: Group headers
-    ws.merge_cells('H3:J3')
-    g1 = ws['H3']
+    # Attendance days group
+    if campaign_days > 0:
+        day_start_letter = openpyxl.utils.get_column_letter(day_start)
+        day_end_letter = openpyxl.utils.get_column_letter(day_start + campaign_days - 1)
+        ws.merge_cells(f'{day_start_letter}3:{day_end_letter}3')
+        att_cell = ws[f'{day_start_letter}3']
+        att_cell.value = "Attendance"
+        att_cell.fill = PatternFill(start_color="059669", end_color="059669", fill_type="solid")
+        att_cell.font = gold_font
+        att_cell.alignment = header_alignment
+        att_cell.border = med_border
+
+    # Perdiem travel nights (3 cols)
+    p1_start = openpyxl.utils.get_column_letter(perdiem_start)
+    p1_end = openpyxl.utils.get_column_letter(perdiem_start + 2)
+    ws.merge_cells(f'{p1_start}3:{p1_end}3')
+    g1 = ws[f'{p1_start}3']
     g1.value = "Perdiem for travel night"
     g1.fill = gold_fill
     g1.font = gold_font
     g1.alignment = header_alignment
     g1.border = med_border
 
-    ws.merge_cells('K3:N3')
-    g2 = ws['K3']
+    # Perdiem field days (4 cols)
+    p2_start = openpyxl.utils.get_column_letter(perdiem_start + 3)
+    p2_end = openpyxl.utils.get_column_letter(perdiem_start + 6)
+    ws.merge_cells(f'{p2_start}3:{p2_end}3')
+    g2 = ws[f'{p2_start}3']
     g2.value = "Perdiem field days and SDA return day"
     g2.fill = gold_fill
     g2.font = gold_font
     g2.alignment = header_alignment
     g2.border = med_border
 
-    for c in ['A3', 'B3', 'C3', 'D3', 'E3', 'F3', 'G3', 'O3', 'P3', 'Q3']:
-        ws[c].fill = header_fill
-        ws[c].font = header_font
-        ws[c].alignment = header_alignment
-        ws[c].border = med_border
+    # Style remaining row 3 cells
+    for col in range(1, total_cols + 1):
+        cell = ws.cell(row=3, column=col)
+        if not cell.value:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = header_alignment
+            cell.border = med_border
     ws.row_dimensions[3].height = 34
 
     # Row 4: Sub headers
     sub_headers = ['No.', "Participant\u2019s Name", 'Bank Account Name', 'Designation', 'Bank Name',
-                   'Account Number', 'Bank Branch', 'Unit cost', '# of Nights', 'Sub-Total',
-                   'Unit cost', '# of Nights', 'Sub-Total', 'SDA',
-                   'Transport refund', 'Total Cost', 'Comments']
+                   'Account Number', 'Bank Branch']
+    for d in range(1, campaign_days + 1):
+        sub_headers.append(f'Day {d}')
+    sub_headers += ['Unit cost', '# of Nights', 'Sub-Total',
+                    'Unit cost', '# of Nights', 'Sub-Total', 'SDA',
+                    'Transport refund', 'Total Cost', 'Comments']
     for i, h in enumerate(sub_headers, start=1):
         cell = ws.cell(row=4, column=i, value=h)
         cell.fill = header_fill
@@ -773,21 +855,33 @@ def build_bank_excel(bank_details, sheet_title="Payment Tracker"):
         ws.cell(row=row_num, column=5, value=bd.bank_name)
         ws.cell(row=row_num, column=6, value=bd.account_number)
         ws.cell(row=row_num, column=7, value=bd.branch)
-        # Empty perdiem columns (8-17)
-        for col in range(1, 18):
+        # Day columns
+        for d in range(1, campaign_days + 1):
+            col = base_cols + d
+            val = '\u2611' if getattr(bd, f'day{d}', False) else '\u2610'
+            ws.cell(row=row_num, column=col, value=val)
+        # Style all columns
+        for col in range(1, total_cols + 1):
             cell = ws.cell(row=row_num, column=col)
             cell.font = cell_font
             cell.border = thin_border
             cell.alignment = cell_alignment
             if col == 1:
                 cell.alignment = center_alignment
-            if col >= 8:
+            # Day columns styling
+            if day_start <= col < perdiem_start:
+                cell.alignment = center_alignment
+                cell.font = checked_font if cell.value == '\u2611' else unchecked_font
+            # Perdiem columns
+            if col >= perdiem_start:
                 cell.fill = empty_fill
                 cell.alignment = center_alignment
         ws.row_dimensions[row_num].height = 22
 
     # Column widths
-    widths = [5, 24, 24, 16, 18, 16, 15, 10, 12, 11, 10, 12, 11, 9, 15, 13, 21]
+    widths = [5, 24, 24, 16, 18, 16, 15]
+    widths += [8] * campaign_days  # day cols
+    widths += [10, 12, 11, 10, 12, 11, 9, 15, 13, 21]  # perdiem cols
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
 
@@ -1230,7 +1324,8 @@ def admin_bank_details(assessment_id):
         branch_stats=bucket_stats(branch_stats),
         daily_submissions=daily_submissions,
         unique_branches=unique_branches,
-        page=bank_page, total_pages=bank_total_pages, per_page=bank_per_page)
+        page=bank_page, total_pages=bank_total_pages, per_page=bank_per_page,
+        campaign_days=assessment.campaign_days)
 
 
 @app.route('/admin/bank/delete/<int:assessment_id>/<int:bd_id>', methods=['POST'])
@@ -1288,7 +1383,7 @@ def download_bank_excel(assessment_id):
             pass
 
     bank_details = query.order_by(BankDetail.submitted_at.desc()).all()
-    wb = build_bank_excel(bank_details)
+    wb = build_bank_excel(bank_details, campaign_days=assessment.campaign_days)
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)

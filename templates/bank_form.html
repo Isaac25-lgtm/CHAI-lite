@@ -47,6 +47,9 @@ th,td{padding:10px 12px;text-align:left;border:1px solid #E5E7EB}
 th{font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.3px}
 tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#FEF3C7}
 .count-badge{background:#FEF3C7;color:#92400E;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700;margin-left:8px}
+.cb-group{display:flex;gap:16px;padding:12px 16px;border:1.5px solid #E5E7EB;border-radius:8px;background:#F9FAFB;flex-wrap:wrap}
+.cb-item{display:flex;align-items:center;gap:6px}.cb-item input[type=checkbox]{width:22px;height:22px;accent-color:#92400E;cursor:pointer}.cb-item label{cursor:pointer;font-size:14px;font-weight:500;user-select:none}
+.day-preview{margin-top:8px;font-size:14px;letter-spacing:1px;color:#374151}
 .instructions{background:#FEF3C7;border:1px solid #FDE68A;padding:18px;border-radius:10px;margin-bottom:20px}
 .instructions h3{color:#92400E;margin-bottom:10px;font-size:14px}
 .instructions ol{padding-left:18px;color:#92400E;font-size:13px}
@@ -114,14 +117,16 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#FEF3C7}
   <div class="fg"><label>Account Number <span class="req">*</span></label><input type="text" id="aAccNo" placeholder="Account number"></div>
   <div class="fg"><label>Bank Branch</label><input type="text" id="aBranch" placeholder="Branch name"></div>
  </div>
+ <div class="fg"><label>Campaign Day Attendance <span class="req">*</span></label>
+  <div class="cb-group" id="aDaysGroup"></div>
+  <div class="day-preview" id="aDayPreview"></div>
+ </div>
  <button class="btn btn-gold" onclick="addMember()">&#10133; Add Team Member</button>
 </div>
 
 <div id="aTableWrap" class="card h" style="overflow-x:auto">
  <h2>Team Members <span class="count-badge" id="aCount">0</span></h2>
- <div style="overflow-x:auto"><table><thead><tr>
-  <th>No.</th><th>Participant's Name</th><th>Bank Account Name</th><th>Designation</th><th>Bank Name</th><th>Account Number</th><th>Bank Branch</th><th>Status</th>
- </tr></thead><tbody id="aTbody"></tbody></table></div>
+ <div style="overflow-x:auto"><table><thead><tr id="aTheadRow"></tr></thead><tbody id="aTbody"></tbody></table></div>
  <div class="action-row">
   <a id="dlExcelBtn" class="btn btn-gold h" style="text-decoration:none">&#128229; Download Payment Excel</a>
  </div>
@@ -145,6 +150,7 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#FEF3C7}
 
 <script>
 const ASSESSMENT_ID = {{ assessment.id }};
+const CAMPAIGN_DAYS = {{ campaign_days }};
 const SK = 'chai_bank_' + ASSESSMENT_ID;
 let members = JSON.parse(localStorage.getItem(SK) || '[]');
 let offlineQueue = JSON.parse(localStorage.getItem(SK + '_q') || '[]');
@@ -154,6 +160,24 @@ function saveQueue(){localStorage.setItem(SK + '_q', JSON.stringify(offlineQueue
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
 function showAlert(msg,type){const el=document.getElementById('aAlert');el.className='alert alert-'+type;el.innerHTML=msg;el.style.display='block';setTimeout(()=>el.style.display='none',5000)}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function ord(n){const s=['','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th','13th','14th','15th','16th','17th','18th','19th','20th','21st','22nd','23rd','24th','25th','26th','27th','28th','29th','30th'];return s[n]||n+'th'}
+
+function buildDayCheckboxes(){
+  const g=document.getElementById('aDaysGroup');let h='';
+  for(let i=1;i<=CAMPAIGN_DAYS;i++) h+='<div class="cb-item"><input type="checkbox" id="bd'+i+'" value="'+i+'" onchange="updDayPreview()"><label for="bd'+i+'">'+ord(i)+'</label></div>';
+  g.innerHTML=h;updDayPreview();buildTableHeaders();
+}
+function updDayPreview(){
+  const el=document.getElementById('aDayPreview');let h='';
+  for(let i=1;i<=CAMPAIGN_DAYS;i++){const cb=document.getElementById('bd'+i);const c=cb&&cb.checked;h+='<span style="margin-right:10px;'+(c?'color:#059669;font-weight:700':'color:#D1D5DB')+'">'+(c?'\u2611':'\u2610')+' '+ord(i)+'</span>';}
+  el.innerHTML=h;
+}
+function buildTableHeaders(){
+  const tr=document.getElementById('aTheadRow');
+  let h='<th>No.</th><th>Participant\'s Name</th><th>Bank Account Name</th><th>Designation</th><th>Bank Name</th><th>Account Number</th><th>Bank Branch</th>';
+  for(let i=1;i<=CAMPAIGN_DAYS;i++) h+='<th>Day '+i+'</th>';
+  h+='<th>Status</th>';tr.innerHTML=h;
+}
 
 function toggleOtherBank(sel){
   const otherInput=document.getElementById('aOtherBank');
@@ -170,7 +194,9 @@ function updNet(){
 window.addEventListener('online',updNet);window.addEventListener('offline',updNet);
 
 async function sendToServer(m, idx){
-  const payload=[{participant_name:m.partName||'',account_name:m.accName,designation:m.desig,bank_name:m.bankName,account_number:m.accNo,branch:m.branch}];
+  const o={participant_name:m.partName||'',account_name:m.accName,designation:m.desig,bank_name:m.bankName,account_number:m.accNo,branch:m.branch};
+  for(let d=1;d<=30;d++) o['day'+d]=!!(m.att&&m.att[d]);
+  const payload=[o];
   try{
     const r=await fetch('/submit/bank',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({members:payload,assessment_id:ASSESSMENT_ID})});
     const d=await r.json();
@@ -205,12 +231,18 @@ async function addMember(){
   if(!partName||!accName||!bankName||!accNo){showAlert('Please fill all required fields','error');return}
   if(bankSel==='Other'&&!otherBank){showAlert('Please enter the bank name','error');return}
 
-  const m={partName,accName,desig,bankName,accNo,branch,ts:Date.now(),status:'sending'};
+  let days=[];for(let i=1;i<=CAMPAIGN_DAYS;i++){if(document.getElementById('bd'+i)&&document.getElementById('bd'+i).checked)days.push(i)}
+  if(!days.length){showAlert('Please select at least one attendance day','error');return}
+  const att={};for(let i=1;i<=CAMPAIGN_DAYS;i++) att[i]=days.includes(i);
+
+  const m={partName,accName,desig,bankName,accNo,branch,att,ts:Date.now(),status:'sending'};
 
   // Clear form immediately
   ['aPartName','aAccName','aDesig','aAccNo','aBranch','aOtherBank'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('aBankName').value='';
   document.getElementById('aOtherBank').style.display='none';
+  for(let i=1;i<=CAMPAIGN_DAYS;i++){const cb=document.getElementById('bd'+i);if(cb)cb.checked=false}
+  updDayPreview();
 
   if(navigator.onLine){
     members.push(m);save();updTable();
@@ -239,7 +271,8 @@ function updTable(){
     if(st==='sent') badge='<span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">Sent</span>';
     else if(st==='sending') badge='<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">Sending...</span>';
     else badge='<span style="background:#FEE2E2;color:#991B1B;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">Queued</span>';
-    tb.innerHTML+='<tr><td style="text-align:center">'+(i+1)+'</td><td>'+esc(m.partName||'')+'</td><td>'+esc(m.accName)+'</td><td>'+esc(m.desig)+'</td><td>'+esc(m.bankName)+'</td><td>'+esc(m.accNo)+'</td><td>'+esc(m.branch)+'</td><td style="text-align:center">'+badge+'</td></tr>';
+    let dc='';for(let d=1;d<=CAMPAIGN_DAYS;d++){const c=m.att&&m.att[d];dc+='<td style="text-align:center;font-size:18px;'+(c?'color:#059669':'color:#D1D5DB')+'">'+(c?'\u2611':'\u2610')+'</td>';}
+    tb.innerHTML+='<tr><td style="text-align:center">'+(i+1)+'</td><td>'+esc(m.partName||'')+'</td><td>'+esc(m.accName)+'</td><td>'+esc(m.desig)+'</td><td>'+esc(m.bankName)+'</td><td>'+esc(m.accNo)+'</td><td>'+esc(m.branch)+'</td>'+dc+'<td style="text-align:center">'+badge+'</td></tr>';
   });
   document.getElementById('aCount').textContent=members.length;
   document.getElementById('aTableWrap').classList.toggle('h',!members.length);
@@ -250,7 +283,7 @@ function updTable(){
   else dlBtn.classList.add('h');
 }
 
-updTable();updNet();
+buildDayCheckboxes();updTable();updNet();
 </script>
 </body>
 </html>

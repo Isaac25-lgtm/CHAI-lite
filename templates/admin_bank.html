@@ -121,7 +121,11 @@ tbody tr:hover{background:#FEF3C7}
   <div class="tbl-wrap">
    <table>
     <thead><tr>
-     <th>No.</th><th>Participant's Name</th><th>Bank Account Name</th><th>Designation</th><th>Bank Name</th><th>Account Number</th><th>Bank Branch</th><th>Submitted</th><th>Action</th>
+     <th>No.</th><th>Participant's Name</th><th>Bank Account Name</th><th>Designation</th><th>Bank Name</th><th>Account Number</th><th>Bank Branch</th>
+     {% for d in range(1, campaign_days + 1) %}
+     <th>Day {{ d }}</th>
+     {% endfor %}
+     <th>Submitted</th><th>Action</th>
     </tr></thead>
     <tbody>
     {% for bd in bank_details %}
@@ -133,6 +137,10 @@ tbody tr:hover{background:#FEF3C7}
       <td>{{ bd.bank_name }}</td>
       <td>{{ bd.account_number }}</td>
       <td>{{ bd.branch }}</td>
+      {% for d in range(1, campaign_days + 1) %}
+      {% set day_val = bd.__getattribute__('day' ~ d) %}
+      <td style="text-align:center;font-size:18px;{% if day_val %}color:#059669{% else %}color:#D1D5DB{% endif %}">{% if day_val %}&#9745;{% else %}&#9744;{% endif %}</td>
+      {% endfor %}
       <td>{{ bd.submitted_at.strftime('%Y-%m-%d %H:%M') }}</td>
       <td style="white-space:nowrap">
        <a href="{{ url_for('edit_bank_detail', assessment_id=assessment.id, bd_id=bd.id) }}" class="btn btn-gold btn-sm" style="text-decoration:none">Edit</a>
