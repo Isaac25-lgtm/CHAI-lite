@@ -121,12 +121,13 @@ tbody tr:hover{background:#FEF3C7}
   <div class="tbl-wrap">
    <table>
     <thead><tr>
-     <th>No.</th><th>Bank Account Name</th><th>Designation</th><th>Bank Name</th><th>Account Number</th><th>Bank Branch</th><th>Submitted</th><th>Action</th>
+     <th>No.</th><th>Participant's Name</th><th>Bank Account Name</th><th>Designation</th><th>Bank Name</th><th>Account Number</th><th>Bank Branch</th><th>Submitted</th><th>Action</th>
     </tr></thead>
     <tbody>
     {% for bd in bank_details %}
      <tr>
       <td style="text-align:center">{{ (page - 1) * per_page + loop.index }}</td>
+      <td>{{ bd.participant_name or '' }}</td>
       <td>{{ bd.account_name }}</td>
       <td>{{ bd.designation }}</td>
       <td>{{ bd.bank_name }}</td>

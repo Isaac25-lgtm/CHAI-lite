@@ -78,7 +78,8 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#FEF3C7}
 
 <div class="card gold-border">
  <h2>Enter Team Member Details</h2>
- <div class="fg"><label>Bank Account Name <span class="req">*</span></label><input type="text" id="aAccName" placeholder="Full name on bank account"></div>
+ <div class="fg"><label>Participant's Name <span class="req">*</span></label><input type="text" id="aPartName" placeholder="Enter full name"></div>
+ <div class="fg"><label>Bank Account Name <span class="req">*</span></label><input type="text" id="aAccName" placeholder="Full name as registered on bank account"></div>
  <div class="fg"><label>Designation</label><input type="text" id="aDesig" placeholder="e.g. District Mentor, TA"></div>
  <div class="fg"><label>Bank Name <span class="req">*</span></label>
   <select id="aBankName" onchange="toggleOtherBank(this)">
@@ -119,7 +120,7 @@ tbody tr:nth-child(even){background:#F9FAFB}tbody tr:hover{background:#FEF3C7}
 <div id="aTableWrap" class="card h" style="overflow-x:auto">
  <h2>Team Members <span class="count-badge" id="aCount">0</span></h2>
  <div style="overflow-x:auto"><table><thead><tr>
-  <th>No.</th><th>Bank Account Name</th><th>Designation</th><th>Bank Name</th><th>Account Number</th><th>Bank Branch</th><th>Action</th>
+  <th>No.</th><th>Participant's Name</th><th>Bank Account Name</th><th>Designation</th><th>Bank Name</th><th>Account Number</th><th>Bank Branch</th><th>Action</th>
  </tr></thead><tbody id="aTbody"></tbody></table></div>
  <div class="action-row">
   <button class="btn btn-green" onclick="submitAll()">&#128228; Submit to Server</button>
@@ -169,6 +170,7 @@ function updNet(){
 window.addEventListener('online',updNet);window.addEventListener('offline',updNet);
 
 function addMember(){
+  const partName=document.getElementById('aPartName').value.trim();
   const accName=document.getElementById('aAccName').value.trim();
   const desig=document.getElementById('aDesig').value.trim();
   const bankSel=document.getElementById('aBankName').value;
@@ -176,11 +178,11 @@ function addMember(){
   const bankName=bankSel==='Other'?otherBank:bankSel;
   const accNo=document.getElementById('aAccNo').value.trim();
   const branch=document.getElementById('aBranch').value.trim();
-  if(!accName||!bankName||!accNo){showAlert('Please fill all required fields','error');return}
+  if(!partName||!accName||!bankName||!accNo){showAlert('Please fill all required fields','error');return}
   if(bankSel==='Other'&&!otherBank){showAlert('Please enter the bank name','error');return}
-  members.push({accName,desig,bankName,accNo,branch,ts:Date.now()});
+  members.push({partName,accName,desig,bankName,accNo,branch,ts:Date.now()});
   save();updTable();
-  ['aAccName','aDesig','aAccNo','aBranch','aOtherBank'].forEach(id=>document.getElementById(id).value='');
+  ['aPartName','aAccName','aDesig','aAccNo','aBranch','aOtherBank'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('aBankName').value='';
   document.getElementById('aOtherBank').style.display='none';
   showAlert('\u2705 Team member added!','success');
@@ -191,7 +193,7 @@ function delMember(i){if(confirm('Delete this member?')){members.splice(i,1);sav
 function updTable(){
   const tb=document.getElementById('aTbody');tb.innerHTML='';
   members.forEach((m,i)=>{
-    tb.innerHTML+='<tr><td>'+(i+1)+'</td><td>'+esc(m.accName)+'</td><td>'+esc(m.desig)+'</td><td>'+esc(m.bankName)+'</td><td>'+esc(m.accNo)+'</td><td>'+esc(m.branch)+'</td><td><button class="btn-red" onclick="delMember('+i+')">Delete</button></td></tr>';
+    tb.innerHTML+='<tr><td>'+(i+1)+'</td><td>'+esc(m.partName||'')+'</td><td>'+esc(m.accName)+'</td><td>'+esc(m.desig)+'</td><td>'+esc(m.bankName)+'</td><td>'+esc(m.accNo)+'</td><td>'+esc(m.branch)+'</td><td><button class="btn-red" onclick="delMember('+i+')">Delete</button></td></tr>';
   });
   document.getElementById('aCount').textContent=members.length;
   document.getElementById('aTableWrap').classList.toggle('h',!members.length);
@@ -203,7 +205,7 @@ function clearAll(){if(!members.length)return;if(confirm('Clear all?')){members=
 async function submitAll(){
   if(!members.length){toast('Add members first');return}
   if(!navigator.onLine){toast('You are offline');return}
-  const payload=members.map(m=>({account_name:m.accName,designation:m.desig,bank_name:m.bankName,account_number:m.accNo,branch:m.branch}));
+  const payload=members.map(m=>({participant_name:m.partName||'',account_name:m.accName,designation:m.desig,bank_name:m.bankName,account_number:m.accNo,branch:m.branch}));
   try{
     const r=await fetch('/submit/bank',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({members:payload,assessment_id:ASSESSMENT_ID})});
     const d=await r.json();
@@ -217,11 +219,11 @@ async function submitAll(){
 function dlXLS(){
   if(!members.length){toast('Add members first');return}
   const wb=XLSX.utils.book_new();
-  const hdr=['No.','Bank Account Name','Designation','Bank Name','Account Number','Bank Branch',
+  const hdr=['No.',"Participant\u2019s Name",'Bank Account Name','Designation','Bank Name','Account Number','Bank Branch',
     'Unit cost','# of Nights','Sub-Total','Unit cost','# of Nights','Sub-Total','SDA',
     'Transport refund','Total Cost','Comments'];
   const rows=[hdr];
-  members.forEach((m,i)=>{rows.push([i+1,m.accName,m.desig,m.bankName,m.accNo,m.branch,'','','','','','','','','',''])});
+  members.forEach((m,i)=>{rows.push([i+1,m.partName||'',m.accName,m.desig,m.bankName,m.accNo,m.branch,'','','','','','','','','',''])});
   const ws=XLSX.utils.aoa_to_sheet(rows);
   ws['!cols']=[{wch:5},{wch:24},{wch:16},{wch:18},{wch:16},{wch:15},{wch:10},{wch:12},{wch:11},{wch:10},{wch:12},{wch:11},{wch:9},{wch:15},{wch:13},{wch:21}];
   XLSX.utils.book_append_sheet(wb,ws,'Payment Tracker');

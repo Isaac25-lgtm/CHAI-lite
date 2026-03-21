@@ -173,6 +173,7 @@ class Assessment(db.Model):
 class BankDetail(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     assessment_id = db.Column(db.Integer, db.ForeignKey('assessment.id'), nullable=False)
+    participant_name = db.Column(db.String(200), default='')
     account_name = db.Column(db.String(200), nullable=False)
     designation = db.Column(db.String(100), default='')
     bank_name = db.Column(db.String(100), nullable=False)
@@ -184,6 +185,7 @@ class BankDetail(db.Model):
         return {
             'id': self.id,
             'assessment_id': self.assessment_id,
+            'participant_name': self.participant_name or '',
             'account_name': self.account_name,
             'designation': self.designation,
             'bank_name': self.bank_name,
@@ -348,6 +350,9 @@ with app.app_context():
             # Lock column
             db.session.execute(db.text(
                 "ALTER TABLE assessment ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE"))
+            # Bank detail participant name
+            db.session.execute(db.text(
+                "ALTER TABLE bank_detail ADD COLUMN IF NOT EXISTS participant_name VARCHAR(200) DEFAULT ''"))
             db.session.commit()
         except Exception:
             db.session.rollback()
@@ -649,13 +654,14 @@ def submit_bank_details():
         for m in members:
             bd = BankDetail(
                 assessment_id=assessment_id,
+                participant_name=(m.get('participant_name') or '').strip().title(),
                 account_name=(m.get('account_name') or '').strip().title(),
                 designation=(m.get('designation') or '').strip(),
                 bank_name=(m.get('bank_name') or '').strip(),
                 account_number=(m.get('account_number') or '').strip(),
                 branch=(m.get('branch') or '').strip()
             )
-            if not bd.account_name or not bd.bank_name or not bd.account_number:
+            if not bd.participant_name or not bd.account_name or not bd.bank_name or not bd.account_number:
                 return jsonify({'success': False, 'error': 'Account name, bank name, and account number are required'}), 400
             db.session.add(bd)
             saved.append(bd)
@@ -690,7 +696,7 @@ def build_bank_excel(bank_details, sheet_title="Payment Tracker"):
     empty_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
 
     # Row 1: PAYMENT DETAILS banner
-    ws.merge_cells('A1:P1')
+    ws.merge_cells('A1:Q1')
     title_cell = ws['A1']
     title_cell.value = "PAYMENT DETAILS"
     title_cell.fill = header_fill
@@ -703,23 +709,23 @@ def build_bank_excel(bank_details, sheet_title="Payment Tracker"):
     ws.row_dimensions[2].height = 8
 
     # Row 3: Group headers
-    ws.merge_cells('G3:I3')
-    g1 = ws['G3']
+    ws.merge_cells('H3:J3')
+    g1 = ws['H3']
     g1.value = "Perdiem for travel night"
     g1.fill = gold_fill
     g1.font = gold_font
     g1.alignment = header_alignment
     g1.border = med_border
 
-    ws.merge_cells('J3:M3')
-    g2 = ws['J3']
+    ws.merge_cells('K3:N3')
+    g2 = ws['K3']
     g2.value = "Perdiem field days and SDA return day"
     g2.fill = gold_fill
     g2.font = gold_font
     g2.alignment = header_alignment
     g2.border = med_border
 
-    for c in ['A3', 'B3', 'C3', 'D3', 'E3', 'F3', 'N3', 'O3', 'P3']:
+    for c in ['A3', 'B3', 'C3', 'D3', 'E3', 'F3', 'G3', 'O3', 'P3', 'Q3']:
         ws[c].fill = header_fill
         ws[c].font = header_font
         ws[c].alignment = header_alignment
@@ -727,8 +733,8 @@ def build_bank_excel(bank_details, sheet_title="Payment Tracker"):
     ws.row_dimensions[3].height = 34
 
     # Row 4: Sub headers
-    sub_headers = ['No.', 'Bank Account Name', 'Designation', 'Bank Name', 'Account Number',
-                   'Bank Branch', 'Unit cost', '# of Nights', 'Sub-Total',
+    sub_headers = ['No.', "Participant\u2019s Name", 'Bank Account Name', 'Designation', 'Bank Name',
+                   'Account Number', 'Bank Branch', 'Unit cost', '# of Nights', 'Sub-Total',
                    'Unit cost', '# of Nights', 'Sub-Total', 'SDA',
                    'Transport refund', 'Total Cost', 'Comments']
     for i, h in enumerate(sub_headers, start=1):
@@ -743,26 +749,27 @@ def build_bank_excel(bank_details, sheet_title="Payment Tracker"):
     for idx, bd in enumerate(bank_details, start=1):
         row_num = idx + 4
         ws.cell(row=row_num, column=1, value=idx)
-        ws.cell(row=row_num, column=2, value=bd.account_name)
-        ws.cell(row=row_num, column=3, value=bd.designation)
-        ws.cell(row=row_num, column=4, value=bd.bank_name)
-        ws.cell(row=row_num, column=5, value=bd.account_number)
-        ws.cell(row=row_num, column=6, value=bd.branch)
-        # Empty perdiem columns (7-16)
-        for col in range(1, 17):
+        ws.cell(row=row_num, column=2, value=bd.participant_name or '')
+        ws.cell(row=row_num, column=3, value=bd.account_name)
+        ws.cell(row=row_num, column=4, value=bd.designation)
+        ws.cell(row=row_num, column=5, value=bd.bank_name)
+        ws.cell(row=row_num, column=6, value=bd.account_number)
+        ws.cell(row=row_num, column=7, value=bd.branch)
+        # Empty perdiem columns (8-17)
+        for col in range(1, 18):
             cell = ws.cell(row=row_num, column=col)
             cell.font = cell_font
             cell.border = thin_border
             cell.alignment = cell_alignment
             if col == 1:
                 cell.alignment = center_alignment
-            if col >= 7:
+            if col >= 8:
                 cell.fill = empty_fill
                 cell.alignment = center_alignment
         ws.row_dimensions[row_num].height = 22
 
     # Column widths
-    widths = [5, 24, 16, 18, 16, 15, 10, 12, 11, 10, 12, 11, 9, 15, 13, 21]
+    widths = [5, 24, 24, 16, 18, 16, 15, 10, 12, 11, 10, 12, 11, 9, 15, 13, 21]
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
 
@@ -1136,6 +1143,7 @@ def admin_bank_details(assessment_id):
     query = BankDetail.query.filter_by(assessment_id=assessment_id)
     if search:
         query = query.filter(db.or_(
+            BankDetail.participant_name.ilike(f'%{search}%'),
             BankDetail.account_name.ilike(f'%{search}%'),
             BankDetail.account_number.ilike(f'%{search}%'),
             BankDetail.designation.ilike(f'%{search}%'),
@@ -1317,7 +1325,8 @@ def edit_bank_detail(assessment_id, bd_id):
 
     if request.method == 'POST':
         old_name = bd.account_name
-        bd.account_name = request.form.get('account_name', bd.account_name)
+        bd.participant_name = (request.form.get('participant_name') or bd.participant_name or '').strip().title()
+        bd.account_name = (request.form.get('account_name') or bd.account_name).strip().title()
         bd.designation = request.form.get('designation', bd.designation)
         bd.bank_name = request.form.get('bank_name', bd.bank_name)
         bd.account_number = request.form.get('account_number', bd.account_number)
